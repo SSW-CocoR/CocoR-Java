@@ -1026,17 +1026,17 @@ public class Tab {
 		}
 	}
 
-	void GetSingles(Node p, ArrayList singles) {
+	void GetSingles(Node p, ArrayList singles, Node rule) {
 		if (p == null) return;  // end of graph
 		if (p.typ == Node.nt) {
-			if (p.up || DelGraph(p.next)) singles.add(p.sym);
+			if (p.up || DelGraph(p.next) || p.sym.graph == rule) singles.add(p.sym);
 		} else if (p.typ == Node.alt || p.typ == Node.iter || p.typ == Node.opt) {
 			if (p.up || DelGraph(p.next)) {
-				GetSingles(p.sub, singles);
-				if (p.typ == Node.alt) GetSingles(p.down, singles);
+				GetSingles(p.sub, singles, rule);
+				if (p.typ == Node.alt) GetSingles(p.down, singles, rule);
 			}
 		}
-		if (!p.up && DelNode(p)) GetSingles(p.next, singles);
+		if (!p.up && DelNode(p)) GetSingles(p.next, singles, rule);
 	}
 
 	public boolean NoCircularProductions() {
@@ -1045,7 +1045,7 @@ public class Tab {
 		for (int i = 0; i < nonterminals.size(); i++) {
 			Symbol sym = (Symbol)nonterminals.get(i);
 			ArrayList singles = new ArrayList();
-			GetSingles(sym.graph, singles); // get nonterminals s such that sym-->s
+			GetSingles(sym.graph, singles, sym.graph); // get nonterminals s such that sym-->s
 			for (int j = 0; j < singles.size(); j++) {
 				Symbol s = (Symbol)singles.get(j);
 				list.add(new CNode(sym, s));
