@@ -855,8 +855,8 @@ public class DFA {
       } else parser.SemErr("comment delimiters must not be structured");
       p = p.next;
     }
-    if (s.length() == 0 || s.length() > 2) {
-      parser.SemErr("comment delimiters must be 1 or 2 characters long");
+    if (s.length() == 0 || s.length() > 8) {
+      parser.SemErr("comment delimiters must be 1 or 8 characters long");
       s = new StringBuffer("?");
     }
     return s.toString();
@@ -870,6 +870,7 @@ public class DFA {
   //--------------------- scanner generation ------------------------
 
   void GenComBody(Comment com) {
+	int imax = com.start.length()-1;
     gen.println("\t\t\tfor(;;) {");
     gen.print  ("\t\t\t\tif (" + ChCond(com.stop.charAt(0)) + ") "); gen.println("{");
     if (com.stop.length() == 1) {
@@ -877,22 +878,31 @@ public class DFA {
       gen.println("\t\t\t\t\tif (level == 0) { oldEols = line - line0; NextCh(); return true; }");
       gen.println("\t\t\t\t\tNextCh();");
     } else {
-      gen.println("\t\t\t\t\tNextCh();");
-      gen.println("\t\t\t\t\tif (" + ChCond(com.stop.charAt(1)) + ") {");
+      for(int sidx = 1; sidx <= imax; ++sidx) {
+		  gen.println("\t\t\t\t\tNextCh();");
+		  gen.println("\t\t\t\t\tif (" + ChCond(com.stop.charAt(sidx)) + ") {");
+      }
       gen.println("\t\t\t\t\t\tlevel--;");
-      gen.println("\t\t\t\t\t\tif (level == 0) { oldEols = line - line0; NextCh(); return true; }");
+      gen.println("\t\t\t\t\t\tif (level == 0) { /*oldEols = line - line0;*/ NextCh(); return true; }");
       gen.println("\t\t\t\t\t\tNextCh();");
-      gen.println("\t\t\t\t\t}");
+      for(int sidx = imax; sidx > 0; --sidx) {
+        gen.println("\t\t\t\t\t}");
+      }
     }
     if (com.nested) {
       gen.print  ("\t\t\t\t}"); gen.println(" else if (" + ChCond(com.start.charAt(0)) + ") {");
       if (com.start.length() == 1)
         gen.println("\t\t\t\t\tlevel++; NextCh();");
       else {
-        gen.println("\t\t\t\t\tNextCh();");
-        gen.print  ("\t\t\t\t\tif (" + ChCond(com.start.charAt(1)) + ") "); gen.println("{");
+        int imaxN = com.start.length()-1;
+        for(int sidx = 1; sidx <= imaxN; ++sidx) {
+			gen.println("\t\t\t\t\tNextCh();");
+			gen.print  ("\t\t\t\t\tif (" + ChCond(com.start.charAt(sidx)) + ") "); gen.println("{");
+        }
         gen.println("\t\t\t\t\t\tlevel++; NextCh();");
-        gen.println("\t\t\t\t\t}");
+		for(int sidx = imaxN; sidx > 0; --sidx) {
+			gen.println("\t\t\t\t\t}");
+		}
       }
     }
     gen.println(    "\t\t\t\t} else if (ch == Buffer.EOF) return false;");
@@ -904,17 +914,20 @@ public class DFA {
     gen.println();
     gen.print  ("\tboolean Comment" + i + "() "); gen.println("{");
     gen.println("\t\tint level = 1, pos0 = pos, line0 = line, col0 = col, charPos0 = charPos;");
+    gen.println("\t\tNextCh();");
     if (com.start.length() == 1) {
-      gen.println("\t\tNextCh();");
       GenComBody(com);
     } else {
-      gen.println("\t\tNextCh();");
-      gen.print  ("\t\tif (" + ChCond(com.start.charAt(1)) + ") "); gen.println("{");
-      gen.println("\t\t\tNextCh();");
+      int imax = com.start.length()-1;
+      for(int sidx = 1; sidx <= imax; ++sidx) {
+		  gen.print  ("\t\tif (" + ChCond(com.start.charAt(sidx)) + ") "); gen.println("{");
+		  gen.println("\t\t\tNextCh();");
+      }
       GenComBody(com);
-      gen.println("\t\t} else {");
-      gen.println("\t\t\tbuffer.setPos(pos0); NextCh(); line = line0; col = col0; charPos = charPos0;");
-      gen.println("\t\t}");
+      for(int sidx = imax; sidx > 0; --sidx) {
+      	gen.println("\t\t}");
+      }
+      gen.println("\t\tbuffer.setPos(pos0); NextCh(); line = line0; col = col0; charPos = charPos0;");
       gen.println("\t\treturn false;");
     }
     gen.println("\t}");

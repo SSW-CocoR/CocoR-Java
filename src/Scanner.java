@@ -416,9 +416,8 @@ public class Scanner {
 				} else if (ch == Buffer.EOF) return false;
 				else NextCh();
 			}
-		} else {
-			buffer.setPos(pos0); NextCh(); line = line0; col = col0; charPos = charPos0;
 		}
+		buffer.setPos(pos0); NextCh(); line = line0; col = col0; charPos = charPos0;
 		return false;
 	}
 
@@ -432,7 +431,7 @@ public class Scanner {
 					NextCh();
 					if (ch == '/') {
 						level--;
-						if (level == 0) { oldEols = line - line0; NextCh(); return true; }
+						if (level == 0) { /*oldEols = line - line0;*/ NextCh(); return true; }
 						NextCh();
 					}
 				} else if (ch == '/') {
@@ -443,9 +442,8 @@ public class Scanner {
 				} else if (ch == Buffer.EOF) return false;
 				else NextCh();
 			}
-		} else {
-			buffer.setPos(pos0); NextCh(); line = line0; col = col0; charPos = charPos0;
 		}
+		buffer.setPos(pos0); NextCh(); line = line0; col = col0; charPos = charPos0;
 		return false;
 	}
 
