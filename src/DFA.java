@@ -750,10 +750,11 @@ public class DFA {
       boolean first = true;
       if (state.endOf == null) trace.Write("               ");
       else trace.Write("E(" + tab.Name(state.endOf.name) + ")", 12);
-      trace.Write(state.nr + ":", 3);
+      trace.Write(state.nr + "", 3);
+      trace.Write(":");
       if (state.firstAction == null) trace.WriteLine();
       for (Action action = state.firstAction; action != null; action = action.next) {
-        if (first) {trace.Write(" "); first = false;} else trace.Write("                   ");
+        if (first) {trace.Write(" "); first = false;} else trace.Write("                    ");
         if (action.typ == Node.clas)
           trace.Write(((CharClass)tab.classes.get(action.sym)).name);
         else trace.Write(Ch((char)action.sym), 3);

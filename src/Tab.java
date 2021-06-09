@@ -42,9 +42,10 @@ class Position { // position of source code stretch (e.g. semantic action, resol
 	public final int beg;      // start relative to the beginning of the file
 	public final int end;      // end of stretch
 	public final int col;      // column number of start position
+	public final int line;     // line number of start position
 
-	public Position(int beg, int end, int col) {
-		this.beg = beg; this.end = end; this.col = col;
+	public Position(int beg, int end, int col, int line) {
+		this.beg = beg; this.end = end; this.col = col; this.line = line;
 	}
 }
 
@@ -204,6 +205,9 @@ public class Tab {
 	public Position semDeclPos;        // position of global semantic declarations
 	public CharSet ignored;            // characters ignored by the scanner
 	public boolean[] ddt = new boolean[10]; // debug and test switches
+	public boolean genAST = false;     // generate parser tree generation code
+	public boolean genRREBNF = false;  //generate EBNF for railroad diagram
+	public boolean ignoreErrors = false; // ignore grammar errors for developing purposes
 	public Symbol gramSy;              // root nonterminal; filled by ATG
 	public Symbol eofSy;               // end of file symbol
 	public Symbol noSym;               // used in case of an error
@@ -278,7 +282,7 @@ public class Tab {
 
 	void PrintSym(Symbol sym) {
 		trace.Write(Integer.toString(sym.n), 3);
-		trace.Write(" ");
+		trace.Write("   ");
 		trace.Write(Name(sym.name), -14);
 		trace.Write(" ");
 		trace.Write(nTyp[sym.typ], 2);
@@ -295,7 +299,7 @@ public class Tab {
 	public void PrintSymbolTable() {
 		trace.WriteLine("Symbol Table:");
 		trace.WriteLine("------------"); trace.WriteLine();
-		trace.WriteLine(" nr name           typ  hasAt graph  del   line tokenKind");
+		trace.WriteLine(" nr   name           typ  hasAt graph  del   line tokenKind");
 		//foreach (Symbol sym in Symbol.terminals)
 		for (int i = 0; i < terminals.size(); i++) {
 			PrintSym((Symbol)terminals.get(i));
@@ -401,7 +405,9 @@ public class Tab {
 	}
 
 	public void MakeIteration(Graph g) {
+		int line = g.l.line;
 		g.l = NewNode(Node.iter, g.l);
+		g.l.line = line;
 		g.r.up = true;
 		Node p = g.r;
 		g.r = g.l;
@@ -412,7 +418,9 @@ public class Tab {
 	}
 
 	public void MakeOption(Graph g) {
+		int line = g.l.line;
 		g.l = NewNode(Node.opt, g.l);
+		g.l.line = line;
 		g.r.up = true;
 		g.l.next = g.r;
 		g.r = g.l;
@@ -479,7 +487,7 @@ public class Tab {
 
 	String Ptr(Node p, boolean up) {
 		String ptr = (p == null) ? "0" : Integer.toString(p.n);
-		return (up) ? ("-" + ptr) : ptr;
+		return (up && (ptr != "0")) ? ("-" + ptr) : ptr;
 	}
 
 	String Pos(Position pos) {
@@ -540,7 +548,7 @@ public class Tab {
 					trace.Write("             ");
 					trace.Write(Pos(p.pos), 5);
 					break;
-				case Node.eps: case Node.any: case Node.sync:
+				case Node.eps: case Node.any: case Node.sync: case Node.rslv:
 					trace.Write("                  "); break;
 			}
 			trace.WriteLine(Integer.toString(p.line), 5);
@@ -603,7 +611,8 @@ public class Tab {
 		//foreach (CharClass c in classes) {
 		for (int i = 0; i < classes.size(); i++) {
 			CharClass c = (CharClass)classes.get(i);
-			trace.Write(c.name + ": ", -10);
+			trace.Write(c.name, -10);
+			trace.Write(": ");
 			WriteCharSet(c.set);
 			trace.WriteLine();
 		}
@@ -913,8 +922,8 @@ public class Tab {
 				Node p = (Node)nodes.get(i);
 				if (p.typ == Node.any || p.typ == Node.sync) {
 					trace.Write("Line: ");
-					trace.WriteLine(Integer.toString(p.line), 4);
-					trace.Write("Node: ");
+					trace.Write(Integer.toString(p.line), 4);
+					trace.Write(" Node: ");
 					trace.Write(Integer.toString(p.n), 4);
 					trace.Write(" ");
 					trace.Write(nTyp[p.typ], 4);
@@ -1010,10 +1019,21 @@ public class Tab {
 
 	public boolean GrammarOk() {
 		boolean ok = NtsComplete()
+			&& AllNtReached()
 			&& NoCircularProductions()
 			&& AllNtToTerm();
-		if (ok) { AllNtReached(); CheckResolvers(); CheckLL1(); }
+		if (ok) { CheckResolvers(); CheckLL1(); }
 		return ok;
+	}
+
+	public boolean GrammarCheckAll() {
+		int errors = 0;
+		if(!NtsComplete()) ++errors;
+		if(!AllNtReached()) ++errors;
+		if(!NoCircularProductions()) ++errors;
+		if(!AllNtToTerm()) ++errors;
+		CheckResolvers(); CheckLL1();
+		return errors == 0;
 	}
 
 	//--------------- check for circular productions ----------------------

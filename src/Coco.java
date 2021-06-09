@@ -50,12 +50,16 @@ public class Coco {
   public static void main (String[] arg) {
     System.out.println("Coco/R (Apr 15, 2013)");
     String srcName = null, nsName = null, frameDir = null, ddtString = null, outDir = null;
+    boolean ignoreErrors = false, genAST = false, genRREBNF = false;
     int retVal = 1;
     for (int i = 0; i < arg.length; i++) {
       if (arg[i].equals("-package") && i < arg.length - 1) nsName = arg[++i].trim();
       else if (arg[i].equals("-frames") && i < arg.length - 1) frameDir = arg[++i].trim();
       else if (arg[i].equals("-trace") && i < arg.length - 1) ddtString = arg[++i].trim();
       else if (arg[i].equals("-o") && i < arg.length - 1) outDir = arg[++i].trim();
+      else if (arg[i].equals("-genAST")) genAST = true;
+      else if (arg[i].equals("-genRREBNF")) genRREBNF = true;
+      else if (arg[i].equals("-ignoreErrors")) ignoreErrors = true;
       else srcName = arg[i];
     }
     if (arg.length > 0 && srcName != null) {
@@ -75,6 +79,9 @@ public class Coco {
         parser.tab.nsName = nsName;
         parser.tab.frameDir = frameDir;
         parser.tab.outDir = (outDir != null) ? outDir : srcDir;
+        parser.tab.genAST = genAST;
+        parser.tab.genRREBNF = genRREBNF;
+        parser.tab.ignoreErrors = ignoreErrors;
         if (ddtString != null) parser.tab.SetDDT(ddtString);
 
         parser.Parse();
@@ -93,6 +100,9 @@ public class Coco {
         "  -frames  <frameFilesDirectory>\n" +
         "  -trace   <traceString>\n" +
         "  -o       <outputDirectory>\n" +
+        "  -genRREBNF\n" +
+        "  -genAST\n" +
+        "  -ignoreErrors ignore grammar errors for developing purposes\n" +
         "Valid characters in the trace string:\n" +
         "  A  trace automaton\n" +
         "  F  list first/follow sets\n" +
