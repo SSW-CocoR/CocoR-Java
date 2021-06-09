@@ -226,6 +226,9 @@ public class ParserGen {
 			  WriteSymbolOrCode(p.sym);
 			  gen.println(");");
 		  }
+		  if(tab.genAST) {
+			gen.println("\tAstAddTerminal();");
+		  }
           break;
         }
         case Node.wt: {
@@ -387,7 +390,15 @@ public class ParserGen {
       gen.println(") {");
       if (sym.retVar != null) gen.println("\t\t" + sym.retType + " " + sym.retVar + ";");
       CopySourcePart(sym.semPos, 2);
+      if(tab.genAST) {
+        if(i == 0) gen.println("\tToken rt = new Token(); rt.kind = _NT_" + sym.name + "; rt.val = \"" + sym.name + "\";ast_root = new SynTree( rt ); ast_stack = new Stack<SynTree>(); ast_stack.push(ast_root);");
+        else gen.println("\tboolean ntAdded = AstAddNonTerminal(_NT_" + sym.name + ", \"" + sym.name + "\", la.line);");
+      }
       GenCode(sym.graph, 2, new BitSet(tab.terminals.size()));
+      if(tab.genAST) {
+      	if(i == 0) gen.println("\tAstPopNonTerminal();");
+      	else gen.println("\tif(ntAdded) AstPopNonTerminal();");
+      }
       if (sym.retVar != null) gen.println("\t\treturn " + sym.retVar + ";");
       gen.println("\t}"); gen.println();
     }

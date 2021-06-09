@@ -27,7 +27,69 @@ Coco/R itself) does not fall under the GNU General Public License.
 ------------------------------------------------------------------------*/
 package Coco;
 
+import java.util.ArrayList;
+import java.util.Stack;
+
 public class Parser {
+
+	public class SynTree {
+		public SynTree(Token t ) {
+			tok = t;
+			children = new ArrayList<SynTree>();
+		}
+
+		public Token tok;
+		public ArrayList<SynTree> children;
+
+		private void printIndent(int n) {
+			for(int i=0; i < n; ++i) System.out.print(" ");
+		}
+
+		public void dump(int indent, boolean isLast) {
+			int last_idx = children.size();
+			if(tok.col > 0) {
+				printIndent(indent);
+				System.out.println(((isLast || (last_idx == 0)) ? "= " : " ") + "\t" + tok.line + "\t" + tok.col + "\t" + tok.kind + "\t" + tok.val);
+			}
+			else {
+				printIndent(indent);
+				System.out.println(children.size() + "\t" + tok.line + "\t" + tok.kind + "\t" + tok.val);
+			}
+			if(last_idx > 0) {
+					for(int idx=0; idx < last_idx; ++idx) children.get(idx).dump(indent+4, idx == last_idx);
+			}
+		}
+		public void dump() {
+			dump(0, false);
+		}
+
+		public void dump2(int maxT, int indent, boolean isLast) {
+			int last_idx = children.size();
+			if(tok.col > 0) {
+				printIndent(indent);
+				System.out.println(((isLast || (last_idx == 0)) ? "= " : " ") + "\t" + tok.line + "\t" + tok.col + "\t" + tok.kind + "\t" + tok.val);
+			}
+			else {
+				if(last_idx == 1) {
+					if(children.get(0).tok.kind < maxT) {
+						printIndent(indent);
+						System.out.println(children.size() + "\t" + tok.line + "\t" + tok.kind + "\t" + tok.val);
+					}
+				}
+				else {
+					printIndent(indent);
+					System.out.println(children.size() + "\t" + tok.line + "\t" + tok.kind + "\t" + tok.val);
+				}
+			}
+			if(last_idx > 0) {
+					for(int idx=0; idx < last_idx; ++idx) children.get(idx).dump2(maxT, indent+4, idx == last_idx);
+			}
+		}
+		public void dump2(int maxT) {
+			dump2(maxT, 0, false);
+		}
+	}
+
 	//non terminals
 	public static final int _NT_Coco = 0;
 	public static final int _NT_SetDecl = 1;
@@ -127,6 +189,29 @@ public class Parser {
 /*-------------------------------------------------------------------------*/
 
 
+
+	public SynTree ast_root;
+	Stack<SynTree> ast_stack;
+	
+	void AstAddTerminal() {
+        SynTree st = new SynTree( t );
+        ast_stack.peek().children.add(st);
+	}
+
+	boolean AstAddNonTerminal(int kind, String nt_name, int line) {
+        Token ntTok = new Token();
+        ntTok.kind = kind;
+        ntTok.line = line;
+        ntTok.val = nt_name;
+        SynTree st = new SynTree( ntTok );
+        ast_stack.peek().children.add(st);
+        ast_stack.push(st);
+        return true;
+	}
+
+	void AstPopNonTerminal() {
+        ast_stack.pop();
+	}
 
 	public Parser(Scanner scanner) {
 		this.scanner = scanner;
