@@ -141,6 +141,17 @@ public class ParserGen {
     }
   }
 
+  /* TODO better interface for CopySourcePart */
+  public void CopySourcePart (Parser parser, PrintWriter gen, Position pos, int indent) {
+    // Copy text described by pos from atg to gen
+    int oldPos = parser.pgen.buffer.getPos();  // Pos is modified by CopySourcePart
+    PrintWriter prevGen = parser.pgen.gen;
+    parser.pgen.gen = gen;
+    parser.pgen.CopySourcePart(pos, 0);
+    parser.pgen.gen = prevGen;
+    parser.pgen.buffer.setPos(oldPos);
+  }
+
   void GenErrorMsg (int errTyp, Symbol sym) {
     errorNr++;
     err.write(ls + "\t\t\tcase " + errorNr + ": s = \"");
@@ -328,12 +339,21 @@ public class ParserGen {
   }
 
   void GenTokens() {
-    //foreach (Symbol sym in Symbol.terminals) {
+	gen.println("\t//non terminals");
+    for (int i = 0; i < tab.nonterminals.size(); i++) {
+      Symbol sym = (Symbol)tab.nonterminals.get(i);
+	  gen.println("\tpublic static final int _NT_" + sym.name + " = " + sym.n + ";");
+	}
+	gen.println("\tpublic static final int maxNT = " + (tab.nonterminals.size()-1) + ";");
+	gen.println("\t//terminals");
     for (int i = 0; i < tab.terminals.size(); i++) {
       Symbol sym = (Symbol)tab.terminals.get(i);
       if (Character.isLetter(sym.name.charAt(0)))
         gen.println("\tpublic static final int _" + sym.name + " = " + sym.n + ";");
+      else
+        gen.println("//\tpublic static final int _(" + sym.name + ") = " + sym.n + ";");
     }
+	gen.println("\t//non terminals");
   }
 
   void GenPragmas() {

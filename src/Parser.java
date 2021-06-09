@@ -28,12 +28,75 @@ Coco/R itself) does not fall under the GNU General Public License.
 package Coco;
 
 public class Parser {
+	//non terminals
+	public static final int _NT_Coco = 0;
+	public static final int _NT_SetDecl = 1;
+	public static final int _NT_TokenDecl = 2;
+	public static final int _NT_TokenExpr = 3;
+	public static final int _NT_Set = 4;
+	public static final int _NT_AttrDecl = 5;
+	public static final int _NT_SemText = 6;
+	public static final int _NT_Expression = 7;
+	public static final int _NT_SimSet = 8;
+	public static final int _NT_Char = 9;
+	public static final int _NT_Sym = 10;
+	public static final int _NT_TypeName = 11;
+	public static final int _NT_Term = 12;
+	public static final int _NT_Resolver = 13;
+	public static final int _NT_Factor = 14;
+	public static final int _NT_Attribs = 15;
+	public static final int _NT_Condition = 16;
+	public static final int _NT_TokenTerm = 17;
+	public static final int _NT_TokenFactor = 18;
+	public static final int _NT_Bracketed = 19;
+	public static final int maxNT = 19;
+	//terminals
 	public static final int _EOF = 0;
 	public static final int _ident = 1;
 	public static final int _number = 2;
 	public static final int _string = 3;
 	public static final int _badString = 4;
 	public static final int _char = 5;
+//	public static final int _("COMPILER") = 6;
+//	public static final int _("IGNORECASE") = 7;
+//	public static final int _("CHARACTERS") = 8;
+//	public static final int _("TOKENS") = 9;
+//	public static final int _("PRAGMAS") = 10;
+//	public static final int _("COMMENTS") = 11;
+//	public static final int _("FROM") = 12;
+//	public static final int _("TO") = 13;
+//	public static final int _("NESTED") = 14;
+//	public static final int _("IGNORE") = 15;
+//	public static final int _("PRODUCTIONS") = 16;
+//	public static final int _("=") = 17;
+//	public static final int _(".") = 18;
+//	public static final int _("END") = 19;
+//	public static final int _("+") = 20;
+//	public static final int _("-") = 21;
+//	public static final int _("..") = 22;
+//	public static final int _("ANY") = 23;
+//	public static final int _("<") = 24;
+//	public static final int _("^") = 25;
+//	public static final int _("out") = 26;
+//	public static final int _(">") = 27;
+//	public static final int _(",") = 28;
+//	public static final int _("<.") = 29;
+//	public static final int _(".>") = 30;
+//	public static final int _("[") = 31;
+//	public static final int _("]") = 32;
+//	public static final int _("|") = 33;
+//	public static final int _("WEAK") = 34;
+//	public static final int _("(") = 35;
+//	public static final int _(")") = 36;
+//	public static final int _("{") = 37;
+//	public static final int _("}") = 38;
+//	public static final int _("SYNC") = 39;
+//	public static final int _("IF") = 40;
+//	public static final int _("CONTEXT") = 41;
+//	public static final int _("(.") = 42;
+//	public static final int _(".)") = 43;
+//	public static final int _(???) = 44;
+	//non terminals
 	public static final int maxT = 44;
 	public static final int _ddtSym = 45;
 	public static final int _optionSym = 46;
@@ -199,7 +262,7 @@ public class Parser {
 			Get();
 			sym = tab.FindSym(t.val);
 			boolean undef = sym == null;
-			if (undef) sym = tab.NewSym(Node.nt, t.val, t.line);
+			if (undef) sym = tab.NewSym(Node.nt, t.val, t.line, t.col);
 			else {
 			 if (sym.typ == Node.nt) {
 			   if (sym.graph != null) SemErr("name declared twice");
@@ -241,7 +304,7 @@ public class Parser {
 		 if (sym.attrPos != null)
 		   SemErr("grammar symbol must not have attributes");
 		}
-		tab.noSym = tab.NewSym(Node.t, "???", 0); // noSym gets highest number
+		tab.noSym = tab.NewSym(Node.t, "???", 0, 0); // noSym gets highest number
 		tab.SetupAnys();
 		tab.RenumberPragmas();
 		if (tab.ddt[2]) tab.PrintNodes();
@@ -296,7 +359,7 @@ public class Parser {
 		sym = tab.FindSym(s.name);
 		if (sym != null) SemErr("name declared twice");
 		else {
-		 sym = tab.NewSym(typ, s.name, t.line);
+		 sym = tab.NewSym(typ, s.name, t.line, t.col);
 		 sym.tokenKind = Symbol.fixedToken;
 		}
 		tokenString = null;
@@ -324,7 +387,7 @@ public class Parser {
 		} else SynErr(47);
 		if (la.kind == 42 /* "(." */) {
 			sym.semPos = SemText();
-			if (typ != Node.pr) SemErr("semantic action not allowed here"); 
+			if (typ == Node.t) errors.Warning("Warning semantic action on token declarations require a custom Scanner"); 
 		}
 	}
 
@@ -564,7 +627,7 @@ public class Parser {
 		Graph g2; Node rslv = null; g = null; 
 		if (StartOf(18)) {
 			if (la.kind == 40 /* "IF" */) {
-				rslv = tab.NewNode(Node.rslv, null, la.line); 
+				rslv = tab.NewNode(Node.rslv, null, la.line, la.col); 
 				rslv.pos = Resolver();
 				g = new Graph(rslv);                       
 			}
@@ -577,10 +640,10 @@ public class Parser {
 				tab.MakeSequence(g, g2); 
 			}
 		} else if (StartOf(20)) {
-			g = new Graph(tab.NewNode(Node.eps, null, t.line)); 
+			g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col)); 
 		} else SynErr(55);
 		if (g == null) // invalid start of Term
-		 g = new Graph(tab.NewNode(Node.eps, null, t.line));
+		 g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col));
 		
 		return g;
 	}
@@ -612,9 +675,9 @@ public class Parser {
 			boolean undef = sym == null;
 			if (undef) {
 			 if (s.kind == id)
-			   sym = tab.NewSym(Node.nt, s.name, 0);  // forward nt
+			   sym = tab.NewSym(Node.nt, s.name, 0, 0);  // forward nt
 			 else if (genScanner) {
-			   sym = tab.NewSym(Node.t, s.name, t.line);
+			   sym = tab.NewSym(Node.t, s.name, t.line, t.col);
 			   dfa.MatchLiteral(sym.name, sym);
 			 } else {  // undefined string in production
 			   SemErr("undefined string in production");
@@ -627,7 +690,7 @@ public class Parser {
 			if (weak)
 			 if (typ == Node.t) typ = Node.wt;
 			 else SemErr("only terminals may be weak");
-			Node p = tab.NewNode(typ, sym, t.line);
+			Node p = tab.NewNode(typ, sym, t.line, t.col);
 			g = new Graph(p);
 			
 			if (la.kind == 24 /* "<" */ || la.kind == 29 /* "<." */) {
@@ -665,7 +728,7 @@ public class Parser {
 		}
 		case 42 /* "(." */: {
 			pos = SemText();
-			Node p = tab.NewNode(Node.sem, null, t.line);
+			Node p = tab.NewNode(Node.sem, null, t.line, t.col);
 			p.pos = pos;
 			g = new Graph(p);
 			
@@ -673,14 +736,14 @@ public class Parser {
 		}
 		case 23 /* "ANY" */: {
 			Get();
-			Node p = tab.NewNode(Node.any, null, t.line);  // p.set is set in tab.SetupAnys
+			Node p = tab.NewNode(Node.any, null, t.line, t.col);  // p.set is set in tab.SetupAnys
 			g = new Graph(p);
 			
 			break;
 		}
 		case 39 /* "SYNC" */: {
 			Get();
-			Node p = tab.NewNode(Node.sync, null, t.line);
+			Node p = tab.NewNode(Node.sync, null, t.line, t.col);
 			g = new Graph(p);
 			
 			break;
@@ -688,7 +751,7 @@ public class Parser {
 		default: SynErr(56); break;
 		}
 		if (g == null) // invalid start of Factor
-		 g = new Graph(tab.NewNode(Node.eps, null, t.line));
+		 g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col));
 		
 		return g;
 	}
@@ -855,7 +918,7 @@ public class Parser {
 			   SemErr("undefined name: " + s.name);
 			   c = tab.NewCharClass(s.name, new CharSet());
 			 }
-			 Node p = tab.NewNode(Node.clas, null, 0); p.val = c.n;
+			 Node p = tab.NewNode(Node.clas, null, 0, 0); p.val = c.n;
 			 g = new Graph(p);
 			 tokenString = noString;
 			} else { // str
@@ -880,7 +943,7 @@ public class Parser {
 			tab.MakeIteration(g); tokenString = noString; 
 		} else SynErr(62);
 		if (g == null) // invalid start of TokenFactor
-		 g = new Graph(tab.NewNode(Node.eps, null, t.line)); 
+		 g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col)); 
 		return g;
 	}
 

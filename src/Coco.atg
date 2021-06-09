@@ -115,7 +115,7 @@ Coco                            (. Symbol sym; Graph g, g1, g2; String gramName;
                                  .)
   { ident                       (. sym = tab.FindSym(t.val);
                                    boolean undef = sym == null;
-                                   if (undef) sym = tab.NewSym(Node.nt, t.val, t.line);
+                                   if (undef) sym = tab.NewSym(Node.nt, t.val, t.line, t.col);
                                    else {
                                      if (sym.typ == Node.nt) {
                                        if (sym.graph != null) SemErr("name declared twice");
@@ -149,7 +149,7 @@ Coco                            (. Symbol sym; Graph g, g1, g2; String gramName;
                                      if (sym.attrPos != null)
                                        SemErr("grammar symbol must not have attributes");
                                    }
-                                   tab.noSym = tab.NewSym(Node.t, "???", 0); // noSym gets highest number
+                                   tab.noSym = tab.NewSym(Node.t, "???", 0, 0); // noSym gets highest number
                                    tab.SetupAnys();
                                    tab.RenumberPragmas();
                                    if (tab.ddt[2]) tab.PrintNodes();
@@ -245,7 +245,7 @@ TokenDecl<int typ>              (. SymInfo s; Symbol sym; Graph g; .)
   Sym<out s>                    (. sym = tab.FindSym(s.name);
                                    if (sym != null) SemErr("name declared twice");
                                    else {
-                                     sym = tab.NewSym(typ, s.name, t.line);
+                                     sym = tab.NewSym(typ, s.name, t.line, t.col);
                                      sym.tokenKind = Symbol.fixedToken;
                                    }
                                    tokenString = null;
@@ -266,7 +266,7 @@ TokenDecl<int typ>              (. SymInfo s; Symbol sym; Graph g; .)
                                    else dfa.MatchLiteral(sym.name, sym);
                                  .)
   )
-  [ SemText<out sym.semPos>     (. if (typ != Node.pr) SemErr("semantic action not allowed here"); .)
+  [ SemText<out sym.semPos>     (. if (typ == Node.t) errors.Warning("Warning semantic action on token declarations require a custom Scanner"); .) //SemErr("semantic action not allowed here"); .)
   ]
 .
 
@@ -323,7 +323,7 @@ Expression<out Graph g>         (. Graph g2; .)
 
 Term<out Graph g>               (. Graph g2; Node rslv = null; g = null; .)
 =
-( [                             (. rslv = tab.NewNode(Node.rslv, null, la.line); .)
+( [                             (. rslv = tab.NewNode(Node.rslv, null, la.line, la.col); .)
     Resolver<out rslv.pos>      (. g = new Graph(rslv);                       .)
   ]
   Factor<out g2>                (. if (rslv != null) tab.MakeSequence(g, g2);
@@ -331,9 +331,9 @@ Term<out Graph g>               (. Graph g2; Node rslv = null; g = null; .)
                                  .)
   { Factor<out g2>              (. tab.MakeSequence(g, g2); .)
   }
-|                               (. g = new Graph(tab.NewNode(Node.eps, null, t.line)); .)
+|                               (. g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col)); .)
 )                               (. if (g == null) // invalid start of Term
-                                     g = new Graph(tab.NewNode(Node.eps, null, t.line));
+                                     g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col));
                                  .)
 .
 
@@ -350,9 +350,9 @@ Factor<out Graph g>             (. SymInfo s; Position pos; boolean weak = false
                                    boolean undef = sym == null;
                                    if (undef) {
                                      if (s.kind == id)
-                                       sym = tab.NewSym(Node.nt, s.name, 0);  // forward nt
+                                       sym = tab.NewSym(Node.nt, s.name, 0, 0);  // forward nt
                                      else if (genScanner) {
-                                       sym = tab.NewSym(Node.t, s.name, t.line);
+                                       sym = tab.NewSym(Node.t, s.name, t.line, t.col);
                                        dfa.MatchLiteral(sym.name, sym);
                                      } else {  // undefined string in production
                                        SemErr("undefined string in production");
@@ -365,7 +365,7 @@ Factor<out Graph g>             (. SymInfo s; Position pos; boolean weak = false
                                    if (weak)
                                      if (typ == Node.t) typ = Node.wt;
                                      else SemErr("only terminals may be weak");
-                                   Node p = tab.NewNode(typ, sym, t.line);
+                                   Node p = tab.NewNode(typ, sym, t.line, t.col);
                                    g = new Graph(p);
                                  .)
   [ Attribs<p>                  (. if (s.kind != id) SemErr("a literal must not have attributes"); .)
@@ -379,18 +379,18 @@ Factor<out Graph g>             (. SymInfo s; Position pos; boolean weak = false
 | '(' Expression<out g> ')'
 | '[' Expression<out g> ']'     (. tab.MakeOption(g); .)
 | '{' Expression<out g> '}'     (. tab.MakeIteration(g); .)
-| SemText<out pos>              (. Node p = tab.NewNode(Node.sem, null, t.line);
+| SemText<out pos>              (. Node p = tab.NewNode(Node.sem, null, t.line, t.col);
                                    p.pos = pos;
                                    g = new Graph(p);
                                  .)
-| "ANY"                         (. Node p = tab.NewNode(Node.any, null, t.line);  // p.set is set in tab.SetupAnys
+| "ANY"                         (. Node p = tab.NewNode(Node.any, null, t.line, t.col);  // p.set is set in tab.SetupAnys
                                    g = new Graph(p);
                                  .)
-| "SYNC"                        (. Node p = tab.NewNode(Node.sync, null, t.line);
+| "SYNC"                        (. Node p = tab.NewNode(Node.sync, null, t.line, t.col);
                                    g = new Graph(p);
                                  .)
 )                               (. if (g == null) // invalid start of Factor
-                                     g = new Graph(tab.NewNode(Node.eps, null, t.line));
+                                     g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col));
                                  .)
 .
 
@@ -443,7 +443,7 @@ TokenFactor<out Graph g>        (. SymInfo s; .)
                                        SemErr("undefined name: " + s.name);
                                        c = tab.NewCharClass(s.name, new CharSet());
                                      }
-                                     Node p = tab.NewNode(Node.clas, null, 0); p.val = c.n;
+                                     Node p = tab.NewNode(Node.clas, null, 0, 0); p.val = c.n;
                                      g = new Graph(p);
                                      tokenString = noString;
                                    } else { // str
@@ -456,7 +456,7 @@ TokenFactor<out Graph g>        (. SymInfo s; .)
 | '[' TokenExpr<out g> ']'      (. tab.MakeOption(g); tokenString = noString; .)
 | '{' TokenExpr<out g> '}'      (. tab.MakeIteration(g); tokenString = noString; .)
 )                               (. if (g == null) // invalid start of TokenFactor
-                                     g = new Graph(tab.NewNode(Node.eps, null, t.line)); .)
+                                     g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col)); .)
 .
 
 /*------------------------------------------------------------------------------------*/

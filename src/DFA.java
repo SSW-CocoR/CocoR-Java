@@ -952,7 +952,7 @@ public class DFA {
     Symbol endOf = state.endOf;
     gen.println("\t\t\t\tcase " + state.nr + ":");
     if (endOf != null && state.firstAction != null) {
-      gen.println("\t\t\t\t\trecEnd = pos; recKind = " + endOf.n + ";");
+      gen.println("\t\t\t\t\trecEnd = pos; recKind = " + endOf.n + " /* " + endOf.name + " */;");
     }
     boolean ctxEnd = state.ctx;
     for (Action action = state.firstAction; action != null; action = action.next) {
@@ -981,10 +981,15 @@ public class DFA {
     if (endOf == null) {
       gen.println("state = 0; break;}");
     } else {
-      gen.print("t.kind = " + endOf.n + "; ");
+      gen.print("t.kind = " + endOf.n + " /* " + endOf.name + " */; ");
       if (endOf.tokenKind == Symbol.classLitToken) {
         gen.println("t.val = new String(tval, 0, tlen); CheckLiteral(); return t;}");
       } else {
+		if(endOf.semPos != null && endOf.typ == Node.t) {
+			gen.print(" {");
+			parser.pgen.CopySourcePart(parser, gen, endOf.semPos, 0);
+			gen.print("};");
+		}
         gen.println("break loop;}");
       }
     }
@@ -1050,11 +1055,11 @@ public class DFA {
         gen.println("\t\tval = val.toLowerCase();");
     }
     g.CopyFramePart("-->scan1");
-    gen.print("\t\t\t");
+    gen.print("\t\t\t\t");
     if (tab.ignored.Elements() > 0) { PutRange(tab.ignored); } else { gen.print("false"); }
     g.CopyFramePart("-->scan2");
     if (firstComment != null) {
-      gen.print("\t\tif (");
+      gen.print("\t\t\tif (");
       com = firstComment; comIdx = 0;
       while (com != null) {
         gen.print(ChCond(com.start.charAt(0)));
@@ -1062,8 +1067,9 @@ public class DFA {
         if (com.next != null) gen.print(" ||");
         com = com.next; comIdx++;
       }
-      gen.print(") return NextToken();");
+      gen.print(") continue;");
     }
+	g.CopyFramePart("-->scan22");
     if (hasCtxMoves) { gen.println(); gen.print("\t\tint apx = 0;"); } /* pdt */
     g.CopyFramePart("-->scan3");
     for (State state = firstState.next; state != null; state = state.next)
