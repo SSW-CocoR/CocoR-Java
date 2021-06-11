@@ -1032,7 +1032,7 @@ public class Tab {
 		int errors = 0;
 		if(!NtsComplete()) ++errors;
 		if(!AllNtReached()) ++errors;
-		if(!NoCircularProductions()) ++errors;
+		if(!NoCircularProductions()) System.exit(1);
 		if(!AllNtToTerm()) ++errors;
 		CheckResolvers(); CheckLL1();
 		return errors == 0;
@@ -1048,17 +1048,17 @@ public class Tab {
 		}
 	}
 
-	void GetSingles(Node p, ArrayList singles, Node rule) {
+	void GetSingles(Node p, ArrayList singles) {
 		if (p == null) return;  // end of graph
 		if (p.typ == Node.nt) {
-			if (p.up || DelGraph(p.next) || p.sym.graph == rule) singles.add(p.sym);
+			singles.add(p.sym);
 		} else if (p.typ == Node.alt || p.typ == Node.iter || p.typ == Node.opt) {
 			if (p.up || DelGraph(p.next)) {
-				GetSingles(p.sub, singles, rule);
-				if (p.typ == Node.alt) GetSingles(p.down, singles, rule);
+				GetSingles(p.sub, singles);
+				if (p.typ == Node.alt) GetSingles(p.down, singles);
 			}
 		}
-		if (!p.up && DelNode(p)) GetSingles(p.next, singles, rule);
+		if (!p.up && DelNode(p)) GetSingles(p.next, singles);
 	}
 
 	public boolean NoCircularProductions() {
@@ -1067,7 +1067,7 @@ public class Tab {
 		for (int i = 0; i < nonterminals.size(); i++) {
 			Symbol sym = (Symbol)nonterminals.get(i);
 			ArrayList singles = new ArrayList();
-			GetSingles(sym.graph, singles, sym.graph); // get nonterminals s such that sym-->s
+			GetSingles(sym.graph, singles); // get nonterminals s such that sym-->s
 			for (int j = 0; j < singles.size(); j++) {
 				Symbol s = (Symbol)singles.get(j);
 				list.add(new CNode(sym, s));
@@ -1092,7 +1092,7 @@ public class Tab {
 		for (int i = 0; i < list.size(); i++) {
 			CNode n = (CNode)list.get(i);
 			ok = false;
-			errors.SemErr("  " + n.left.name + " --> " + n.right.name);
+			errors.SemErr("  " + n.left.name + ":" + n.left.line + " --> " + n.right.name + ":" + n.right.line);
 		}
 		return ok;
 	}
