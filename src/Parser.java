@@ -63,18 +63,20 @@ public class Parser {
 			dump(0, false);
 		}
 
-		public void dump2(int maxT, int indent, boolean isLast) {
+		public void dump2(int indent, boolean isLast) {
 			int last_idx = children.size();
+			int indentPlus = 4;
 			if(tok.col > 0) {
 				printIndent(indent);
 				System.out.println(((isLast || (last_idx == 0)) ? "= " : " ") + "\t" + tok.line + "\t" + tok.col + "\t" + tok.kind + "\t" + tok.val);
 			}
 			else {
 				if(last_idx == 1) {
-					if(children.get(0).tok.kind < maxT) {
+					if(children.get(0).children.size() == 0) {
 						printIndent(indent);
 						System.out.println(children.size() + "\t" + tok.line + "\t" + tok.kind + "\t" + tok.val);
 					}
+					else indentPlus = 0;
 				}
 				else {
 					printIndent(indent);
@@ -82,11 +84,8 @@ public class Parser {
 				}
 			}
 			if(last_idx > 0) {
-					for(int idx=0; idx < last_idx; ++idx) children.get(idx).dump2(maxT, indent+4, idx == last_idx);
+					for(int idx=0; idx < last_idx; ++idx) children.get(idx).dump2(indent+indentPlus, idx == last_idx);
 			}
-		}
-		public void dump2(int maxT) {
-			dump2(maxT, 0, false);
 		}
 	}
 
