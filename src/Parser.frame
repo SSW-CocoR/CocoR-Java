@@ -45,7 +45,7 @@ public class Parser {
 			for(int i=0; i < n; ++i) System.out.print(" ");
 		}
 
-		public void dump(int indent, boolean isLast) {
+		public void dump_all(int indent, boolean isLast) {
 			int last_idx = children.size();
 			if(tok.col > 0) {
 				printIndent(indent);
@@ -56,14 +56,14 @@ public class Parser {
 				System.out.println(children.size() + "\t" + tok.line + "\t" + tok.kind + "\t" + tok.val);
 			}
 			if(last_idx > 0) {
-					for(int idx=0; idx < last_idx; ++idx) children.get(idx).dump(indent+4, idx == last_idx);
+					for(int idx=0; idx < last_idx; ++idx) children.get(idx).dump_all(indent+4, idx == last_idx);
 			}
 		}
-		public void dump() {
-			dump(0, false);
+		public void dump_all() {
+			dump_all(0, false);
 		}
 
-		public void dump2(int indent, boolean isLast) {
+		public void dump_pruned(int indent, boolean isLast) {
 			int last_idx = children.size();
 			int indentPlus = 4;
 			if(tok.col > 0) {
@@ -84,8 +84,11 @@ public class Parser {
 				}
 			}
 			if(last_idx > 0) {
-					for(int idx=0; idx < last_idx; ++idx) children.get(idx).dump2(indent+indentPlus, idx == last_idx);
+					for(int idx=0; idx < last_idx; ++idx) children.get(idx).dump_pruned(indent+indentPlus, idx == last_idx);
 			}
+		}
+		public void dump_pruned() {
+			dump_pruned(0, false);
 		}
 	}
 
