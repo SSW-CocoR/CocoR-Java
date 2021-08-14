@@ -83,6 +83,7 @@ class Symbol {
 	                             // nt: pos of local declarations in source text (or null)
 	public String   retType;     // AH - nt: Type of output attribute (or null)
 	public String   retVar;      // AH - nt: Name of output attribute (or null)
+	public Symbol 	inherits;    // optional, token from which this token derives
 
 	public Symbol(int typ, String name, int line, int col) {
 		this.typ = typ; this.name = name; this.line = line; this.col = col;

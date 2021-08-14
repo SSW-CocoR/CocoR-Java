@@ -182,8 +182,9 @@ public class ParserGen {
         for (int i = 0; i < tab.terminals.size(); i++) {
           Symbol sym = (Symbol)tab.terminals.get(i);
           if (s.get(sym.n)) {
-            gen.print("la.kind == ");
+            gen.print("isKind(la, ");
             WriteSymbolOrCode(sym);
+            gen.print(")");
             --n;
             if (n > 0) gen.print(" || ");
           }
@@ -341,6 +342,17 @@ public class ParserGen {
     }
   }
 
+   void GenTokenBase() {
+	for (int i = 0; i < tab.terminals.size(); i++) {
+		Symbol sym = (Symbol)tab.terminals.get(i);
+		if((i % 20) == 0) gen.print("\n\t\t");
+		if (sym.inherits == null)
+			gen.print("-1,"); // not inherited
+		else
+			gen.print(sym.inherits.n + ",");
+	}
+   }
+
   void GenTokens() {
 	gen.println("\t//non terminals");
     for (int i = 0; i < tab.nonterminals.size(); i++) {
@@ -352,9 +364,12 @@ public class ParserGen {
     for (int i = 0; i < tab.terminals.size(); i++) {
       Symbol sym = (Symbol)tab.terminals.get(i);
       if (Character.isLetter(sym.name.charAt(0)))
-        gen.println("\tpublic static final int _" + sym.name + " = " + sym.n + ";");
+        gen.print("\tpublic static final int _" + sym.name + " = " + sym.n + ";");
       else
-        gen.println("//\tpublic static final int _(" + sym.name + ") = " + sym.n + ";");
+        gen.print("//\tpublic static final int _(" + sym.name + ") = " + sym.n + ";");
+      if(sym.inherits != null)
+	      gen.print(" // INHERITS -> " + sym.inherits.name);
+      gen.println();
     }
 	gen.println("\t//non terminals");
   }
@@ -456,6 +471,7 @@ public class ParserGen {
     g.CopyFramePart("-->pragmas"); GenCodePragmas();
     g.CopyFramePart("-->productions"); GenProductions();
     g.CopyFramePart("-->parseRoot"); gen.println("\t\t" + tab.gramSy.name + "_NT();"); if (tab.checkEOF) gen.println("\t\tExpect(0);");
+    g.CopyFramePart("-->tbase"); GenTokenBase(); // write all tokens base types
     g.CopyFramePart("-->initialization"); InitSets();
     g.CopyFramePart("-->errors"); gen.print(err.toString());
     g.CopyFramePart(null);

@@ -139,31 +139,32 @@ public class Parser {
 //	public static final int _("-") = 21;
 //	public static final int _("..") = 22;
 //	public static final int _("ANY") = 23;
-//	public static final int _("<") = 24;
-//	public static final int _("^") = 25;
-//	public static final int _("out") = 26;
-//	public static final int _(">") = 27;
-//	public static final int _(",") = 28;
-//	public static final int _("<.") = 29;
-//	public static final int _(".>") = 30;
-//	public static final int _("[") = 31;
-//	public static final int _("]") = 32;
-//	public static final int _("|") = 33;
-//	public static final int _("WEAK") = 34;
-//	public static final int _("(") = 35;
-//	public static final int _(")") = 36;
-//	public static final int _("{") = 37;
-//	public static final int _("}") = 38;
-//	public static final int _("SYNC") = 39;
-//	public static final int _("IF") = 40;
-//	public static final int _("CONTEXT") = 41;
-//	public static final int _("(.") = 42;
-//	public static final int _(".)") = 43;
-//	public static final int _(???) = 44;
+//	public static final int _(":") = 24;
+//	public static final int _("<") = 25;
+//	public static final int _("^") = 26;
+//	public static final int _("out") = 27;
+//	public static final int _(">") = 28;
+//	public static final int _(",") = 29;
+//	public static final int _("<.") = 30;
+//	public static final int _(".>") = 31;
+//	public static final int _("[") = 32;
+//	public static final int _("]") = 33;
+//	public static final int _("|") = 34;
+//	public static final int _("WEAK") = 35;
+//	public static final int _("(") = 36;
+//	public static final int _(")") = 37;
+//	public static final int _("{") = 38;
+//	public static final int _("}") = 39;
+//	public static final int _("SYNC") = 40;
+//	public static final int _("IF") = 41;
+//	public static final int _("CONTEXT") = 42;
+//	public static final int _("(.") = 43;
+//	public static final int _(".)") = 44;
+//	public static final int _(???) = 45;
 	//non terminals
-	public static final int maxT = 44;
-	public static final int _ddtSym = 45;
-	public static final int _optionSym = 46;
+	public static final int maxT = 45;
+	public static final int _ddtSym = 46;
+	public static final int _optionSym = 47;
 
 	static final boolean _T = true;
 	static final boolean _x = false;
@@ -172,7 +173,7 @@ public class Parser {
 	public Token t;    // last recognized token
 	public Token la;   // lookahead token
 	int errDist = minErrDist;
-	
+
 	public Scanner scanner;
 	public Errors errors;
 
@@ -194,7 +195,7 @@ public class Parser {
 
 	public SynTree ast_root;
 	Stack<SynTree> ast_stack;
-	
+
 	void AstAddTerminal() {
         SynTree st = new SynTree( t );
         ast_stack.peek().children.add(st);
@@ -229,7 +230,7 @@ public class Parser {
 		if (errDist >= minErrDist) errors.SemErr(t.line, t.col, msg);
 		errDist = 0;
 	}
-	
+
 	void Get () {
 		for (;;) {
 			t = la;
@@ -248,26 +249,35 @@ public class Parser {
 			la = t;
 		}
 	}
-	
-	void Expect (int n) {
-		if (la.kind==n) Get(); else { SynErr(n); }
+
+	boolean isKind(Token t, int n) {
+		int k = t.kind;
+		while(k >= 0) {
+			if (k == n) return true;
+			k = tBase[k];
+		}
+		return false;
 	}
-	
+
+	void Expect (int n) {
+		if (isKind(la, n)) Get(); else { SynErr(n); }
+	}
+
 	boolean StartOf (int s) {
 		return set[s][la.kind];
 	}
-	
+
 	void ExpectWeak (int n, int follow) {
-		if (la.kind == n) Get();
+		if (isKind(la, n)) Get();
 		else {
 			SynErr(n);
 			while (!StartOf(follow)) Get();
 		}
 	}
-	
+
 	boolean WeakSeparator (int n, int syFol, int repFol) {
 		int kind = la.kind;
-		if (kind == n) { Get(); return true; }
+		if (isKind(la, n)) { Get(); return true; }
 		else if (StartOf(repFol)) return false;
 		else {
 			SynErr(n);
@@ -278,8 +288,8 @@ public class Parser {
 			return StartOf(syFol);
 		}
 	}
-	
-	void Coco() {
+
+	void Coco_NT() {
 		Symbol sym; Graph g, g1, g2; String gramName; CharSet s; int beg, line; 
 		if (StartOf(1)) {
 			Get();
@@ -300,52 +310,52 @@ public class Parser {
 			Get();
 		}
 		tab.semDeclPos = new Position(beg, la.pos, 0, line); 
-		if (la.kind == 7 /* "IGNORECASE" */) {
+		if (isKind(la, 7 /* "IGNORECASE" */)) {
 			Get();
 			dfa.ignoreCase = true; 
 		}
-		if (la.kind == 8 /* "CHARACTERS" */) {
+		if (isKind(la, 8 /* "CHARACTERS" */)) {
 			Get();
-			while (la.kind == _ident) {
-				SetDecl();
+			while (isKind(la, _ident)) {
+				SetDecl_NT();
 			}
 		}
-		if (la.kind == 9 /* "TOKENS" */) {
+		if (isKind(la, 9 /* "TOKENS" */)) {
 			Get();
-			while (la.kind == _ident || la.kind == _string || la.kind == _char) {
-				TokenDecl(Node.t);
+			while (isKind(la, _ident) || isKind(la, _string) || isKind(la, _char)) {
+				TokenDecl_NT(Node.t);
 			}
 		}
-		if (la.kind == 10 /* "PRAGMAS" */) {
+		if (isKind(la, 10 /* "PRAGMAS" */)) {
 			Get();
-			while (la.kind == _ident || la.kind == _string || la.kind == _char) {
-				TokenDecl(Node.pr);
+			while (isKind(la, _ident) || isKind(la, _string) || isKind(la, _char)) {
+				TokenDecl_NT(Node.pr);
 			}
 		}
-		while (la.kind == 11 /* "COMMENTS" */) {
+		while (isKind(la, 11 /* "COMMENTS" */)) {
 			Get();
 			boolean nested = false; 
 			Expect(12 /* "FROM" */);
-			g1 = TokenExpr();
+			g1 = TokenExpr_NT();
 			Expect(13 /* "TO" */);
-			g2 = TokenExpr();
-			if (la.kind == 14 /* "NESTED" */) {
+			g2 = TokenExpr_NT();
+			if (isKind(la, 14 /* "NESTED" */)) {
 				Get();
 				nested = true; 
 			}
 			dfa.NewComment(g1.l, g2.l, nested); 
 		}
-		while (la.kind == 15 /* "IGNORE" */) {
+		while (isKind(la, 15 /* "IGNORE" */)) {
 			Get();
-			s = Set();
+			s = Set_NT();
 			tab.ignored.Or(s); 
 		}
-		while (!(la.kind == _EOF || la.kind == 16 /* "PRODUCTIONS" */)) {SynErr(45); Get();}
+		while (!(isKind(la, _EOF) || isKind(la, 16 /* "PRODUCTIONS" */))) {SynErr(46); Get();}
 		Expect(16 /* "PRODUCTIONS" */);
 		if (genScanner) dfa.MakeDeterministic();
 		tab.DeleteNodes();
 		
-		while (la.kind == _ident) {
+		while (isKind(la, _ident)) {
 			Get();
 			sym = tab.FindSym(t.val);
 			boolean undef = sym == null;
@@ -361,19 +371,19 @@ public class Parser {
 			boolean noRet = sym.retVar==null;
 			sym.retVar = null;
 			
-			if (la.kind == 24 /* "<" */ || la.kind == 29 /* "<." */) {
-				AttrDecl(sym);
+			if (isKind(la, 25 /* "<" */) || isKind(la, 30 /* "<." */)) {
+				AttrDecl_NT(sym);
 			}
 			if (!undef)
 			 if (noAttrs != (sym.attrPos == null)
 			   || noRet != (sym.retVar == null))
 			   SemErr("attribute mismatch between declaration and use of this symbol");
 			
-			if (la.kind == 42 /* "(." */) {
-				sym.semPos = SemText();
+			if (isKind(la, 43 /* "(." */)) {
+				sym.semPos = SemText_NT();
 			}
 			ExpectWeak(17 /* "=" */, 3);
-			g = Expression();
+			g = Expression_NT();
 			sym.graph = g.l;
 			tab.Finish(g);
 			
@@ -425,7 +435,7 @@ public class Parser {
 		Expect(18 /* "." */);
 	}
 
-	void SetDecl() {
+	void SetDecl_NT() {
 		CharSet s; 
 		Expect(_ident);
 		String name = t.val;
@@ -433,16 +443,16 @@ public class Parser {
 		if (c != null) SemErr("name declared twice");
 		
 		Expect(17 /* "=" */);
-		s = Set();
+		s = Set_NT();
 		if (s.Elements() == 0) SemErr("character set must not be empty");
 		c = tab.NewCharClass(name, s);
 		
 		Expect(18 /* "." */);
 	}
 
-	void TokenDecl(int typ) {
-		SymInfo s; Symbol sym; Graph g; 
-		s = Sym();
+	void TokenDecl_NT(int typ) {
+		SymInfo s, si; Symbol sym, inheritsSym; Graph g; 
+		s = Sym_NT();
 		sym = tab.FindSym(s.name);
 		if (sym != null) SemErr("name declared twice");
 		else {
@@ -451,10 +461,20 @@ public class Parser {
 		}
 		tokenString = null;
 		
-		while (!(StartOf(5))) {SynErr(46); Get();}
-		if (la.kind == 17 /* "=" */) {
+		if (isKind(la, 24 /* ":" */)) {
 			Get();
-			g = TokenExpr();
+			si = Sym_NT();
+			inheritsSym = tab.FindSym(si.name);
+			if (inheritsSym == null) SemErr("token can't inherit from undeclared name");
+			else if (inheritsSym == sym) SemErr("token must not inherit from itself");
+			else if (inheritsSym.typ != typ) SemErr("token can't inherit from this token type");
+			else sym.inherits = inheritsSym;
+			
+		}
+		while (!(StartOf(5))) {SynErr(47); Get();}
+		if (isKind(la, 17 /* "=" */)) {
+			Get();
+			g = TokenExpr_NT();
 			Expect(18 /* "." */);
 			if (s.kind == str) SemErr("a literal must not be declared with a structure");
 			tab.Finish(g);
@@ -471,20 +491,20 @@ public class Parser {
 			if (s.kind == id) genScanner = false;
 			else dfa.MatchLiteral(sym.name, sym);
 			
-		} else SynErr(47);
-		if (la.kind == 42 /* "(." */) {
-			sym.semPos = SemText();
+		} else SynErr(48);
+		if (isKind(la, 43 /* "(." */)) {
+			sym.semPos = SemText_NT();
 			if (typ == Node.t) errors.Warning("Warning semantic action on token declarations require a custom Scanner"); 
 		}
 	}
 
-	Graph  TokenExpr() {
+	Graph  TokenExpr_NT() {
 		Graph  g;
 		Graph g2; 
-		g = TokenTerm();
+		g = TokenTerm_NT();
 		boolean first = true; 
-		while (WeakSeparator(33,7,8) ) {
-			g2 = TokenTerm();
+		while (WeakSeparator(34,7,8) ) {
+			g2 = TokenTerm_NT();
 			if (first) { tab.MakeFirstAlt(g); first = false; }
 			tab.MakeAlternative(g, g2);
 			
@@ -492,51 +512,51 @@ public class Parser {
 		return g;
 	}
 
-	CharSet  Set() {
+	CharSet  Set_NT() {
 		CharSet  s;
 		CharSet s2; 
-		s = SimSet();
-		while (la.kind == 20 /* "+" */ || la.kind == 21 /* "-" */) {
-			if (la.kind == 20 /* "+" */) {
+		s = SimSet_NT();
+		while (isKind(la, 20 /* "+" */) || isKind(la, 21 /* "-" */)) {
+			if (isKind(la, 20 /* "+" */)) {
 				Get();
-				s2 = SimSet();
+				s2 = SimSet_NT();
 				s.Or(s2); 
 			} else {
 				Get();
-				s2 = SimSet();
+				s2 = SimSet_NT();
 				s.Subtract(s2); 
 			}
 		}
 		return s;
 	}
 
-	void AttrDecl(Symbol sym) {
+	void AttrDecl_NT(Symbol sym) {
 		int beg, col, line; 
-		if (la.kind == 24 /* "<" */) {
+		if (isKind(la, 25 /* "<" */)) {
 			Get();
-			if (la.kind == 25 /* "^" */ || la.kind == 26 /* "out" */) {
-				if (la.kind == 25 /* "^" */) {
+			if (isKind(la, 26 /* "^" */) || isKind(la, 27 /* "out" */)) {
+				if (isKind(la, 26 /* "^" */)) {
 					Get();
 				} else {
 					Get();
 				}
 				beg = la.pos; 
-				TypeName();
+				TypeName_NT();
 				sym.retType = scanner.buffer.GetString(beg, la.pos); 
 				Expect(_ident);
 				sym.retVar = t.val; 
-				if (la.kind == 27 /* ">" */) {
+				if (isKind(la, 28 /* ">" */)) {
 					Get();
-				} else if (la.kind == 28 /* "," */) {
+				} else if (isKind(la, 29 /* "," */)) {
 					Get();
 					beg = la.pos; col = la.col; line = la.line; 
 					while (StartOf(9)) {
 						Get();
 					}
-					Expect(27 /* ">" */);
+					Expect(28 /* ">" */);
 					if (t.pos > beg)
 					 sym.attrPos = new Position(beg, t.pos, col, line); 
-				} else SynErr(48);
+				} else SynErr(49);
 			} else if (StartOf(10)) {
 				beg = la.pos; col = la.col; line = la.line; 
 				if (StartOf(11)) {
@@ -545,35 +565,35 @@ public class Parser {
 						Get();
 					}
 				}
-				Expect(27 /* ">" */);
+				Expect(28 /* ">" */);
 				if (t.pos > beg)
 				 sym.attrPos = new Position(beg, t.pos, col, line); 
-			} else SynErr(49);
-		} else if (la.kind == 29 /* "<." */) {
+			} else SynErr(50);
+		} else if (isKind(la, 30 /* "<." */)) {
 			Get();
-			if (la.kind == 25 /* "^" */ || la.kind == 26 /* "out" */) {
-				if (la.kind == 25 /* "^" */) {
+			if (isKind(la, 26 /* "^" */) || isKind(la, 27 /* "out" */)) {
+				if (isKind(la, 26 /* "^" */)) {
 					Get();
 				} else {
 					Get();
 				}
 				beg = la.pos; 
-				TypeName();
+				TypeName_NT();
 				sym.retType = scanner.buffer.GetString(beg, la.pos); 
 				Expect(_ident);
 				sym.retVar = t.val; 
-				if (la.kind == 30 /* ".>" */) {
+				if (isKind(la, 31 /* ".>" */)) {
 					Get();
-				} else if (la.kind == 28 /* "," */) {
+				} else if (isKind(la, 29 /* "," */)) {
 					Get();
 					beg = la.pos; col = la.col; line = la.line; 
 					while (StartOf(12)) {
 						Get();
 					}
-					Expect(30 /* ".>" */);
+					Expect(31 /* ".>" */);
 					if (t.pos > beg)
 					 sym.attrPos = new Position(beg, t.pos, col, line); 
-				} else SynErr(50);
+				} else SynErr(51);
 			} else if (StartOf(10)) {
 				beg = la.pos; col = la.col; line = la.line; 
 				if (StartOf(13)) {
@@ -582,21 +602,21 @@ public class Parser {
 						Get();
 					}
 				}
-				Expect(30 /* ".>" */);
+				Expect(31 /* ".>" */);
 				if (t.pos > beg)
 				 sym.attrPos = new Position(beg, t.pos, col, line); 
-			} else SynErr(51);
-		} else SynErr(52);
+			} else SynErr(52);
+		} else SynErr(53);
 	}
 
-	Position  SemText() {
+	Position  SemText_NT() {
 		Position  pos;
-		Expect(42 /* "(." */);
+		Expect(43 /* "(." */);
 		int beg = la.pos; int col = la.col; int line = la.line; 
 		while (StartOf(14)) {
 			if (StartOf(15)) {
 				Get();
-			} else if (la.kind == _badString) {
+			} else if (isKind(la, _badString)) {
 				Get();
 				SemErr("bad string in semantic action"); 
 			} else {
@@ -604,18 +624,18 @@ public class Parser {
 				SemErr("missing end of previous semantic action"); 
 			}
 		}
-		Expect(43 /* ".)" */);
+		Expect(44 /* ".)" */);
 		pos = new Position(beg, t.pos, col, line); 
 		return pos;
 	}
 
-	Graph  Expression() {
+	Graph  Expression_NT() {
 		Graph  g;
 		Graph g2; 
-		g = Term();
+		g = Term_NT();
 		boolean first = true; 
-		while (WeakSeparator(33,16,17) ) {
-			g2 = Term();
+		while (WeakSeparator(34,16,17) ) {
+			g2 = Term_NT();
 			if (first) { tab.MakeFirstAlt(g); first = false; }
 			tab.MakeAlternative(g, g2);
 			
@@ -623,38 +643,38 @@ public class Parser {
 		return g;
 	}
 
-	CharSet  SimSet() {
+	CharSet  SimSet_NT() {
 		CharSet  s;
 		int n1, n2; 
 		s = new CharSet(); 
-		if (la.kind == _ident) {
+		if (isKind(la, _ident)) {
 			Get();
 			CharClass c = tab.FindCharClass(t.val);
 			if (c == null) SemErr("undefined name"); else s.Or(c.set);
 			
-		} else if (la.kind == _string) {
+		} else if (isKind(la, _string)) {
 			Get();
 			String name = t.val;
 			name = tab.Unescape(name.substring(1, name.length()-1));
 			for (int i = 0; i < name.length(); i++)
 			 if (dfa.ignoreCase) s.Set(Character.toLowerCase(name.charAt(i)));
 			 else s.Set(name.charAt(i)); 
-		} else if (la.kind == _char) {
-			n1 = Char();
+		} else if (isKind(la, _char)) {
+			n1 = Char_NT();
 			s.Set(n1); 
-			if (la.kind == 22 /* ".." */) {
+			if (isKind(la, 22 /* ".." */)) {
 				Get();
-				n2 = Char();
+				n2 = Char_NT();
 				for (int i = n1; i <= n2; i++) s.Set(i); 
 			}
-		} else if (la.kind == 23 /* "ANY" */) {
+		} else if (isKind(la, 23 /* "ANY" */)) {
 			Get();
 			s = new CharSet(); s.Fill(); 
-		} else SynErr(53);
+		} else SynErr(54);
 		return s;
 	}
 
-	int  Char() {
+	int  Char_NT() {
 		int  n;
 		Expect(_char);
 		String name = t.val; n = 0;
@@ -666,14 +686,14 @@ public class Parser {
 		return n;
 	}
 
-	SymInfo  Sym() {
+	SymInfo  Sym_NT() {
 		SymInfo  s;
 		s = new SymInfo(); s.name = "???"; s.kind = id; 
-		if (la.kind == _ident) {
+		if (isKind(la, _ident)) {
 			Get();
 			s.kind = id; s.name = t.val; 
-		} else if (la.kind == _string || la.kind == _char) {
-			if (la.kind == _string) {
+		} else if (isKind(la, _string) || isKind(la, _char)) {
+			if (isKind(la, _string)) {
 				Get();
 				s.name = t.val; 
 			} else {
@@ -684,78 +704,78 @@ public class Parser {
 			if (dfa.ignoreCase) s.name = s.name.toLowerCase();
 			if (s.name.indexOf(' ') >= 0)
 			 SemErr("literal tokens must not contain blanks"); 
-		} else SynErr(54);
+		} else SynErr(55);
 		return s;
 	}
 
-	void TypeName() {
+	void TypeName_NT() {
 		Expect(_ident);
-		while (la.kind == 18 /* "." */ || la.kind == 24 /* "<" */ || la.kind == 31 /* "[" */) {
-			if (la.kind == 18 /* "." */) {
+		while (isKind(la, 18 /* "." */) || isKind(la, 25 /* "<" */) || isKind(la, 32 /* "[" */)) {
+			if (isKind(la, 18 /* "." */)) {
 				Get();
 				Expect(_ident);
-			} else if (la.kind == 31 /* "[" */) {
+			} else if (isKind(la, 32 /* "[" */)) {
 				Get();
-				Expect(32 /* "]" */);
+				Expect(33 /* "]" */);
 			} else {
 				Get();
-				TypeName();
-				while (la.kind == 28 /* "," */) {
+				TypeName_NT();
+				while (isKind(la, 29 /* "," */)) {
 					Get();
-					TypeName();
+					TypeName_NT();
 				}
-				Expect(27 /* ">" */);
+				Expect(28 /* ">" */);
 			}
 		}
 	}
 
-	Graph  Term() {
+	Graph  Term_NT() {
 		Graph  g;
 		Graph g2; Node rslv = null; g = null; 
 		if (StartOf(18)) {
-			if (la.kind == 40 /* "IF" */) {
+			if (isKind(la, 41 /* "IF" */)) {
 				rslv = tab.NewNode(Node.rslv, null, la.line, la.col); 
-				rslv.pos = Resolver();
+				rslv.pos = Resolver_NT();
 				g = new Graph(rslv);                       
 			}
-			g2 = Factor();
+			g2 = Factor_NT();
 			if (rslv != null) tab.MakeSequence(g, g2);
 			else g = g2;
 			
 			while (StartOf(19)) {
-				g2 = Factor();
+				g2 = Factor_NT();
 				tab.MakeSequence(g, g2); 
 			}
 		} else if (StartOf(20)) {
 			g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col)); 
-		} else SynErr(55);
+		} else SynErr(56);
 		if (g == null) // invalid start of Term
 		 g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col));
 		
 		return g;
 	}
 
-	Position  Resolver() {
+	Position  Resolver_NT() {
 		Position  pos;
-		Expect(40 /* "IF" */);
-		Expect(35 /* "(" */);
+		Expect(41 /* "IF" */);
+		Expect(36 /* "(" */);
 		int beg = la.pos; int col = la.col; int line = la.line; 
-		Condition();
+		Condition_NT();
 		pos = new Position(beg, t.pos, col, line); 
 		return pos;
 	}
 
-	Graph  Factor() {
+	Graph  Factor_NT() {
 		Graph  g;
 		SymInfo s; Position pos; boolean weak = false;
 		g = null; 
 		switch (la.kind) {
-		case _ident: case _string: case _char: case 34 /* "WEAK" */: {
-			if (la.kind == 34 /* "WEAK" */) {
+		case _ident: case _string: case _char: case 35 /* "WEAK" */: {
+			if (isKind(la, 35 /* "WEAK" */)) {
 				Get();
 				weak = true; 
 			}
-			s = Sym();
+			s = Sym_NT();
 			Symbol sym = tab.FindSym(s.name);
 			if (sym == null && s.kind == str)
 			 sym = (Symbol)tab.literals.get(s.name);
@@ -780,8 +800,8 @@ public class Parser {
 			Node p = tab.NewNode(typ, sym, t.line, t.col);
 			g = new Graph(p);
 			
-			if (la.kind == 24 /* "<" */ || la.kind == 29 /* "<." */) {
-				Attribs(p);
+			if (isKind(la, 25 /* "<" */) || isKind(la, 30 /* "<." */)) {
+				Attribs_NT(p);
 				if (s.kind != id) SemErr("a literal must not have attributes"); 
 			}
 			if (undef) {
@@ -793,28 +813,28 @@ public class Parser {
 			
 			break;
 		}
-		case 35 /* "(" */: {
+		case 36 /* "(" */: {
 			Get();
-			g = Expression();
-			Expect(36 /* ")" */);
+			g = Expression_NT();
+			Expect(37 /* ")" */);
 			break;
 		}
-		case 31 /* "[" */: {
+		case 32 /* "[" */: {
 			Get();
-			g = Expression();
-			Expect(32 /* "]" */);
+			g = Expression_NT();
+			Expect(33 /* "]" */);
 			tab.MakeOption(g); 
 			break;
 		}
-		case 37 /* "{" */: {
+		case 38 /* "{" */: {
 			Get();
-			g = Expression();
-			Expect(38 /* "}" */);
+			g = Expression_NT();
+			Expect(39 /* "}" */);
 			tab.MakeIteration(g); 
 			break;
 		}
-		case 42 /* "(." */: {
-			pos = SemText();
+		case 43 /* "(." */: {
+			pos = SemText_NT();
 			Node p = tab.NewNode(Node.sem, null, t.line, t.col);
 			p.pos = pos;
 			g = new Graph(p);
@@ -828,14 +848,14 @@ public class Parser {
 			
 			break;
 		}
-		case 39 /* "SYNC" */: {
+		case 40 /* "SYNC" */: {
 			Get();
 			Node p = tab.NewNode(Node.sync, null, t.line, t.col);
 			g = new Graph(p);
 			
 			break;
 		}
-		default: SynErr(56); break;
+		default: SynErr(57); break;
 		}
 		if (g == null) // invalid start of Factor
 		 g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col));
@@ -843,12 +863,12 @@ public class Parser {
 		return g;
 	}
 
-	void Attribs(Node n) {
+	void Attribs_NT(Node n) {
 		int beg, col, line; 
-		if (la.kind == 24 /* "<" */) {
+		if (isKind(la, 25 /* "<" */)) {
 			Get();
-			if (la.kind == 25 /* "^" */ || la.kind == 26 /* "out" */) {
-				if (la.kind == 25 /* "^" */) {
+			if (isKind(la, 26 /* "^" */) || isKind(la, 27 /* "out" */)) {
+				if (isKind(la, 26 /* "^" */)) {
 					Get();
 				} else {
 					Get();
@@ -857,17 +877,17 @@ public class Parser {
 				while (StartOf(21)) {
 					if (StartOf(22)) {
 						Get();
-					} else if (la.kind == 31 /* "[" */ || la.kind == 35 /* "(" */) {
-						Bracketed();
+					} else if (isKind(la, 32 /* "[" */) || isKind(la, 36 /* "(" */)) {
+						Bracketed_NT();
 					} else {
 						Get();
 						SemErr("bad string in attributes"); 
 					}
 				}
 				n.retVar = scanner.buffer.GetString(beg, la.pos); 
-				if (la.kind == 27 /* ">" */) {
+				if (isKind(la, 28 /* ">" */)) {
 					Get();
-				} else if (la.kind == 28 /* "," */) {
+				} else if (isKind(la, 29 /* "," */)) {
 					Get();
 					beg = la.pos; col = la.col; line = la.line; 
 					while (StartOf(9)) {
@@ -878,9 +898,9 @@ public class Parser {
 							SemErr("bad string in attributes"); 
 						}
 					}
-					Expect(27 /* ">" */);
+					Expect(28 /* ">" */);
 					if (t.pos > beg) n.pos = new Position(beg, t.pos, col, line); 
-				} else SynErr(57);
+				} else SynErr(58);
 			} else if (StartOf(10)) {
 				beg = la.pos; col = la.col; line = la.line; 
 				if (StartOf(11)) {
@@ -899,13 +919,13 @@ public class Parser {
 						}
 					}
 				}
-				Expect(27 /* ">" */);
+				Expect(28 /* ">" */);
 				if (t.pos > beg) n.pos = new Position(beg, t.pos, col, line); 
-			} else SynErr(58);
-		} else if (la.kind == 29 /* "<." */) {
+			} else SynErr(59);
+		} else if (isKind(la, 30 /* "<." */)) {
 			Get();
-			if (la.kind == 25 /* "^" */ || la.kind == 26 /* "out" */) {
-				if (la.kind == 25 /* "^" */) {
+			if (isKind(la, 26 /* "^" */) || isKind(la, 27 /* "out" */)) {
+				if (isKind(la, 26 /* "^" */)) {
 					Get();
 				} else {
 					Get();
@@ -914,17 +934,17 @@ public class Parser {
 				while (StartOf(25)) {
 					if (StartOf(26)) {
 						Get();
-					} else if (la.kind == 31 /* "[" */ || la.kind == 35 /* "(" */) {
-						Bracketed();
+					} else if (isKind(la, 32 /* "[" */) || isKind(la, 36 /* "(" */)) {
+						Bracketed_NT();
 					} else {
 						Get();
 						SemErr("bad string in attributes"); 
 					}
 				}
 				n.retVar = scanner.buffer.GetString(beg, la.pos); 
-				if (la.kind == 30 /* ".>" */) {
+				if (isKind(la, 31 /* ".>" */)) {
 					Get();
-				} else if (la.kind == 28 /* "," */) {
+				} else if (isKind(la, 29 /* "," */)) {
 					Get();
 					beg = la.pos; col = la.col; line = la.line; 
 					while (StartOf(12)) {
@@ -935,9 +955,9 @@ public class Parser {
 							SemErr("bad string in attributes"); 
 						}
 					}
-					Expect(30 /* ".>" */);
+					Expect(31 /* ".>" */);
 					if (t.pos > beg) n.pos = new Position(beg, t.pos, col, line); 
-				} else SynErr(59);
+				} else SynErr(60);
 			} else if (StartOf(10)) {
 				beg = la.pos; col = la.col; line = la.line; 
 				if (StartOf(13)) {
@@ -956,49 +976,49 @@ public class Parser {
 						}
 					}
 				}
-				Expect(30 /* ".>" */);
+				Expect(31 /* ".>" */);
 				if (t.pos > beg) n.pos = new Position(beg, t.pos, col, line); 
-			} else SynErr(60);
-		} else SynErr(61);
+			} else SynErr(61);
+		} else SynErr(62);
 	}
 
-	void Condition() {
+	void Condition_NT() {
 		while (StartOf(29)) {
-			if (la.kind == 35 /* "(" */) {
+			if (isKind(la, 36 /* "(" */)) {
 				Get();
-				Condition();
+				Condition_NT();
 			} else {
 				Get();
 			}
 		}
-		Expect(36 /* ")" */);
+		Expect(37 /* ")" */);
 	}
 
-	Graph  TokenTerm() {
+	Graph  TokenTerm_NT() {
 		Graph  g;
 		Graph g2; 
-		g = TokenFactor();
+		g = TokenFactor_NT();
 		while (StartOf(7)) {
-			g2 = TokenFactor();
+			g2 = TokenFactor_NT();
 			tab.MakeSequence(g, g2); 
 		}
-		if (la.kind == 41 /* "CONTEXT" */) {
+		if (isKind(la, 42 /* "CONTEXT" */)) {
 			Get();
-			Expect(35 /* "(" */);
-			g2 = TokenExpr();
+			Expect(36 /* "(" */);
+			g2 = TokenExpr_NT();
 			tab.SetContextTrans(g2.l); dfa.hasCtxMoves = true;
 			tab.MakeSequence(g, g2); 
-			Expect(36 /* ")" */);
+			Expect(37 /* ")" */);
 		}
 		return g;
 	}
 
-	Graph  TokenFactor() {
+	Graph  TokenFactor_NT() {
 		Graph  g;
 		SymInfo s; 
 		g = null; 
-		if (la.kind == _ident || la.kind == _string || la.kind == _char) {
-			s = Sym();
+		if (isKind(la, _ident) || isKind(la, _string) || isKind(la, _char)) {
+			s = Sym_NT();
 			if (s.kind == id) {
 			 CharClass c = tab.FindCharClass(s.name);
 			 if (c == null) {
@@ -1014,93 +1034,101 @@ public class Parser {
 			 else tokenString = noString;
 			}
 			
-		} else if (la.kind == 35 /* "(" */) {
+		} else if (isKind(la, 36 /* "(" */)) {
 			Get();
-			g = TokenExpr();
-			Expect(36 /* ")" */);
-		} else if (la.kind == 31 /* "[" */) {
+			g = TokenExpr_NT();
+			Expect(37 /* ")" */);
+		} else if (isKind(la, 32 /* "[" */)) {
 			Get();
-			g = TokenExpr();
-			Expect(32 /* "]" */);
+			g = TokenExpr_NT();
+			Expect(33 /* "]" */);
 			tab.MakeOption(g); tokenString = noString; 
-		} else if (la.kind == 37 /* "{" */) {
+		} else if (isKind(la, 38 /* "{" */)) {
 			Get();
-			g = TokenExpr();
-			Expect(38 /* "}" */);
+			g = TokenExpr_NT();
+			Expect(39 /* "}" */);
 			tab.MakeIteration(g); tokenString = noString; 
-		} else SynErr(62);
+		} else SynErr(63);
 		if (g == null) // invalid start of TokenFactor
 		 g = new Graph(tab.NewNode(Node.eps, null, t.line, t.col)); 
 		return g;
 	}
 
-	void Bracketed() {
-		if (la.kind == 35 /* "(" */) {
+	void Bracketed_NT() {
+		if (isKind(la, 36 /* "(" */)) {
 			Get();
 			while (StartOf(29)) {
-				if (la.kind == 31 /* "[" */ || la.kind == 35 /* "(" */) {
-					Bracketed();
+				if (isKind(la, 32 /* "[" */) || isKind(la, 36 /* "(" */)) {
+					Bracketed_NT();
 				} else {
 					Get();
 				}
 			}
-			Expect(36 /* ")" */);
-		} else if (la.kind == 31 /* "[" */) {
+			Expect(37 /* ")" */);
+		} else if (isKind(la, 32 /* "[" */)) {
 			Get();
 			while (StartOf(30)) {
-				if (la.kind == 31 /* "[" */ || la.kind == 35 /* "(" */) {
-					Bracketed();
+				if (isKind(la, 32 /* "[" */) || isKind(la, 36 /* "(" */)) {
+					Bracketed_NT();
 				} else {
 					Get();
 				}
 			}
-			Expect(32 /* "]" */);
-		} else SynErr(63);
+			Expect(33 /* "]" */);
+		} else SynErr(64);
 	}
 
 
 
 	public void Parse() {
 		la = new Token();
-		la.val = "";		
+		la.val = "";
 		Get();
-		Coco();
+		Coco_NT();
 		Expect(0);
 
 	}
 
+	// a token's base type
+	public static final int[] tBase = {
+
+		-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+		-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+		-1,-1,-1,-1,-1,-1,
+	};
+
 	private static final boolean[][] set = {
-		{_T,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x},
-		{_x,_T,_T,_T, _T,_T,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_x, _x,_x,_x,_x, _T,_T,_T,_x, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_T,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_T,_T,_x, _x,_x,_x,_T, _x,_x,_x,_x, _x,_x,_x,_T, _x,_T,_T,_T, _x,_T,_x,_T, _T,_x,_T,_x, _x,_x},
-		{_T,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_T,_x,_T, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x},
-		{_T,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x},
-		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x},
-		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x},
-		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_T,_T,_T, _T,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _T,_x,_T,_x, _x,_x,_x,_x, _x,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_x,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_x,_T, _T,_T,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _T,_x},
-		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_x, _T,_x},
-		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_T, _x,_x,_x,_x, _x,_x,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_T,_x, _x,_x},
-		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _T,_x,_T,_x, _x,_x,_x,_x, _x,_x},
-		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_T,_T, _x,_T,_x,_T, _T,_x,_T,_x, _x,_x},
-		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_T,_T, _x,_T,_x,_T, _x,_x,_T,_x, _x,_x},
-		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_T,_x,_x, _T,_x,_T,_x, _x,_x,_x,_x, _x,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _x,_T,_T,_x, _T,_T,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_x,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_T,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_T,_x,_x, _T,_T,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_x,_T, _T,_T,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_x},
-		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x}
+		{_T,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x},
+		{_x,_T,_T,_T, _T,_T,_x,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_x, _x,_x,_x,_x, _T,_T,_T,_x, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_T,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_T,_T,_x, _x,_x,_x,_T, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_T,_T, _T,_x,_T,_x, _T,_T,_x,_T, _x,_x,_x},
+		{_T,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_T,_x,_T, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x},
+		{_T,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x},
+		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_T,_T, _x,_x,_x,_T, _T,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x},
+		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_x, _T,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_T,_T,_T, _T,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_x,_x, _x,_T,_x,_T, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_x, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_x, _T,_T,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_T,_x},
+		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _x,_T,_x},
+		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_T, _x,_x,_x,_x, _x,_x,_x,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_T, _x,_x,_x},
+		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_x,_x, _x,_T,_x,_T, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_T, _T,_x,_T,_x, _T,_T,_x,_T, _x,_x,_x},
+		{_x,_T,_x,_T, _x,_T,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_T, _x,_x,_x,_x, _x,_x,_x,_x, _T,_x,_x,_T, _T,_x,_T,_x, _T,_x,_x,_T, _x,_x,_x},
+		{_x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_T,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_x,_x,_x, _x,_T,_T,_x, _x,_T,_x,_T, _x,_x,_x,_x, _x,_x,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_x,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_x,_T,_T, _x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_x, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_T,_x, _x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x,_x, _T,_T,_T,_x, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_T,_T, _T,_T,_T,_T, _T,_T,_x},
+		{_x,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_x,_T,_T, _T,_T,_T,_T, _T,_T,_T,_T, _T,_T,_x}
 
 	};
 } // end Parser
@@ -1110,7 +1138,7 @@ class Errors {
 	public int count = 0;                                    // number of errors detected
 	public java.io.PrintStream errorStream = System.out;     // error messages go to this stream
 	public String errMsgFormat = "-- line {0} col {1}: {2}"; // 0=line, 1=column, 2=text
-	
+
 	protected void printMsg(int line, int column, String msg) {
 		StringBuffer b = new StringBuffer(errMsgFormat);
 		int pos = b.indexOf("{0}");
@@ -1121,7 +1149,7 @@ class Errors {
 		if (pos >= 0) b.replace(pos, pos+3, msg);
 		errorStream.println(b.toString());
 	}
-	
+
 	public void SynErr (int line, int col, int n) {
 		String s;
 		switch (n) {
@@ -1149,66 +1177,67 @@ class Errors {
 			case 21: s = "\"-\" expected"; break;
 			case 22: s = "\"..\" expected"; break;
 			case 23: s = "\"ANY\" expected"; break;
-			case 24: s = "\"<\" expected"; break;
-			case 25: s = "\"^\" expected"; break;
-			case 26: s = "\"out\" expected"; break;
-			case 27: s = "\">\" expected"; break;
-			case 28: s = "\",\" expected"; break;
-			case 29: s = "\"<.\" expected"; break;
-			case 30: s = "\".>\" expected"; break;
-			case 31: s = "\"[\" expected"; break;
-			case 32: s = "\"]\" expected"; break;
-			case 33: s = "\"|\" expected"; break;
-			case 34: s = "\"WEAK\" expected"; break;
-			case 35: s = "\"(\" expected"; break;
-			case 36: s = "\")\" expected"; break;
-			case 37: s = "\"{\" expected"; break;
-			case 38: s = "\"}\" expected"; break;
-			case 39: s = "\"SYNC\" expected"; break;
-			case 40: s = "\"IF\" expected"; break;
-			case 41: s = "\"CONTEXT\" expected"; break;
-			case 42: s = "\"(.\" expected"; break;
-			case 43: s = "\".)\" expected"; break;
-			case 44: s = "??? expected"; break;
-			case 45: s = "this symbol not expected in Coco"; break;
-			case 46: s = "this symbol not expected in TokenDecl"; break;
-			case 47: s = "invalid TokenDecl"; break;
-			case 48: s = "invalid AttrDecl"; break;
+			case 24: s = "\":\" expected"; break;
+			case 25: s = "\"<\" expected"; break;
+			case 26: s = "\"^\" expected"; break;
+			case 27: s = "\"out\" expected"; break;
+			case 28: s = "\">\" expected"; break;
+			case 29: s = "\",\" expected"; break;
+			case 30: s = "\"<.\" expected"; break;
+			case 31: s = "\".>\" expected"; break;
+			case 32: s = "\"[\" expected"; break;
+			case 33: s = "\"]\" expected"; break;
+			case 34: s = "\"|\" expected"; break;
+			case 35: s = "\"WEAK\" expected"; break;
+			case 36: s = "\"(\" expected"; break;
+			case 37: s = "\")\" expected"; break;
+			case 38: s = "\"{\" expected"; break;
+			case 39: s = "\"}\" expected"; break;
+			case 40: s = "\"SYNC\" expected"; break;
+			case 41: s = "\"IF\" expected"; break;
+			case 42: s = "\"CONTEXT\" expected"; break;
+			case 43: s = "\"(.\" expected"; break;
+			case 44: s = "\".)\" expected"; break;
+			case 45: s = "??? expected"; break;
+			case 46: s = "this symbol not expected in Coco"; break;
+			case 47: s = "this symbol not expected in TokenDecl"; break;
+			case 48: s = "invalid TokenDecl"; break;
 			case 49: s = "invalid AttrDecl"; break;
 			case 50: s = "invalid AttrDecl"; break;
 			case 51: s = "invalid AttrDecl"; break;
 			case 52: s = "invalid AttrDecl"; break;
-			case 53: s = "invalid SimSet"; break;
-			case 54: s = "invalid Sym"; break;
-			case 55: s = "invalid Term"; break;
-			case 56: s = "invalid Factor"; break;
-			case 57: s = "invalid Attribs"; break;
+			case 53: s = "invalid AttrDecl"; break;
+			case 54: s = "invalid SimSet"; break;
+			case 55: s = "invalid Sym"; break;
+			case 56: s = "invalid Term"; break;
+			case 57: s = "invalid Factor"; break;
 			case 58: s = "invalid Attribs"; break;
 			case 59: s = "invalid Attribs"; break;
 			case 60: s = "invalid Attribs"; break;
 			case 61: s = "invalid Attribs"; break;
-			case 62: s = "invalid TokenFactor"; break;
-			case 63: s = "invalid Bracketed"; break;
+			case 62: s = "invalid Attribs"; break;
+			case 63: s = "invalid TokenFactor"; break;
+			case 64: s = "invalid Bracketed"; break;
 			default: s = "error " + n; break;
 		}
 		printMsg(line, col, s);
 		count++;
 	}
 
-	public void SemErr (int line, int col, String s) {	
+	public void SemErr (int line, int col, String s) {
 		printMsg(line, col, s);
 		count++;
 	}
-	
+
 	public void SemErr (String s) {
 		errorStream.println(s);
 		count++;
 	}
-	
-	public void Warning (int line, int col, String s) {	
+
+	public void Warning (int line, int col, String s) {
 		printMsg(line, col, s);
 	}
-	
+
 	public void Warning (String s) {
 		errorStream.println(s);
 	}

@@ -240,7 +240,7 @@ Char<out int n>
 
 /*------------------------------------------------------------------------------------*/
 
-TokenDecl<int typ>              (. SymInfo s; Symbol sym; Graph g; .)
+TokenDecl<int typ>              (. SymInfo s, si; Symbol sym, inheritsSym; Graph g; .)
 =
   Sym<out s>                    (. sym = tab.FindSym(s.name);
                                    if (sym != null) SemErr("name declared twice");
@@ -250,6 +250,14 @@ TokenDecl<int typ>              (. SymInfo s; Symbol sym; Graph g; .)
                                    }
                                    tokenString = null;
                                  .)
+  [ ':' Sym<out si>
+                                (. inheritsSym = tab.FindSym(si.name);
+                                   if (inheritsSym == null) SemErr("token can't inherit from undeclared name");
+                                   else if (inheritsSym == sym) SemErr("token must not inherit from itself");
+                                   else if (inheritsSym.typ != typ) SemErr("token can't inherit from this token type");
+                                   else sym.inherits = inheritsSym;
+                                 .)
+  ]
   SYNC
   ( '=' TokenExpr<out g> '.'    (. if (s.kind == str) SemErr("a literal must not be declared with a structure");
                                    tab.Finish(g);
