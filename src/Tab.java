@@ -42,9 +42,10 @@ class Position { // position of source code stretch (e.g. semantic action, resol
 	public final int beg;      // start relative to the beginning of the file
 	public final int end;      // end of stretch
 	public final int col;      // column number of start position
+	public final int line;     // line number of start position
 
-	public Position(int beg, int end, int col) {
-		this.beg = beg; this.end = end; this.col = col;
+	public Position(int beg, int end, int col, int line) {
+		this.beg = beg; this.end = end; this.col = col; this.line = line;
 	}
 }
 
@@ -76,14 +77,16 @@ class Symbol {
 	public BitSet   follow;      // nt: terminal followers
 	public BitSet   nts;         // nt: nonterminals whose followers have to be added to this sym
 	public int      line;        // source text line number of item in this node
+	public int      col;         // source text line column number of item in this node
 	public Position attrPos;     // nt: position of attributes in source text (or null)
 	public Position semPos;      // pr: pos of semantic action in source text (or null)
 	                             // nt: pos of local declarations in source text (or null)
 	public String   retType;     // AH - nt: Type of output attribute (or null)
 	public String   retVar;      // AH - nt: Name of output attribute (or null)
+	public Symbol 	inherits;    // optional, token from which this token derives
 
-	public Symbol(int typ, String name, int line) {
-		this.typ = typ; this.name = name; this.line = line;
+	public Symbol(int typ, String name, int line, int col) {
+		this.typ = typ; this.name = name; this.line = line; this.col = col;
 	}
 }
 
@@ -126,12 +129,13 @@ class Node {
 	public Position pos;			// nt, t, wt: pos of actual attributes
 														// sem:       pos of semantic action in source text
 	public int      line;			// source text line number of item in this node
+	public int      col;			// source text line column number of item in this node
 	public State    state;		// DFA state corresponding to this node
 														// (only used in DFA.ConvertToStates)
 	public String retVar;			// AH 20040206 - nt: name of output attribute (or null)
 
-	public Node(int typ, Symbol sym, int line) {
-		this.typ = typ; this.sym = sym; this.line = line;
+	public Node(int typ, Symbol sym, int line, int col) {
+		this.typ = typ; this.sym = sym; this.line = line; this.col = col;
 	}
 
 }
@@ -204,6 +208,9 @@ public class Tab {
 	public Position semDeclPos;        // position of global semantic declarations
 	public CharSet ignored;            // characters ignored by the scanner
 	public boolean[] ddt = new boolean[10]; // debug and test switches
+	public boolean genAST = false;     // generate parser tree generation code
+	public boolean genRREBNF = false;  //generate EBNF for railroad diagram
+	public boolean ignoreErrors = false; // ignore grammar errors for developing purposes
 	public Symbol gramSy;              // root nonterminal; filled by ATG
 	public Symbol eofSy;               // end of file symbol
 	public Symbol noSym;               // used in case of an error
@@ -229,8 +236,8 @@ public class Tab {
 		this.parser = parser;
 		trace = parser.trace;
 		errors = parser.errors;
-		eofSy = NewSym(Node.t, "EOF", 0);
-		dummyNode = NewNode(Node.eps, null, 0);
+		eofSy = NewSym(Node.t, "EOF", 0, 0);
+		dummyNode = NewNode(Node.eps, null, 0, 0);
 		literals = new Hashtable();
 	}
 
@@ -244,11 +251,11 @@ public class Tab {
 
 	String[] tKind = {"fixedToken", "classToken", "litToken", "classLitToken"};
 
-	public Symbol NewSym(int typ, String name, int line) {
+	public Symbol NewSym(int typ, String name, int line, int col) {
 		if (name.length() == 2 && name.charAt(0) == '"') {
 			parser.SemErr("empty token not allowed"); name = "???";
 		}
-		Symbol sym = new Symbol(typ, name, line);
+		Symbol sym = new Symbol(typ, name, line, col);
 		switch (typ) {
 			case Node.t:  sym.n = terminals.size(); terminals.add(sym); break;
 			case Node.pr: pragmas.add(sym); break;
@@ -278,7 +285,7 @@ public class Tab {
 
 	void PrintSym(Symbol sym) {
 		trace.Write(Integer.toString(sym.n), 3);
-		trace.Write(" ");
+		trace.Write("   ");
 		trace.Write(Name(sym.name), -14);
 		trace.Write(" ");
 		trace.Write(nTyp[sym.typ], 2);
@@ -295,7 +302,7 @@ public class Tab {
 	public void PrintSymbolTable() {
 		trace.WriteLine("Symbol Table:");
 		trace.WriteLine("------------"); trace.WriteLine();
-		trace.WriteLine(" nr name           typ  hasAt graph  del   line tokenKind");
+		trace.WriteLine(" nr   name           typ  hasAt graph  del   line tokenKind");
 		//foreach (Symbol sym in Symbol.terminals)
 		for (int i = 0; i < terminals.size(); i++) {
 			PrintSym((Symbol)terminals.get(i));
@@ -350,21 +357,21 @@ public class Tab {
 	"sync", "sem ", "alt ", "iter", "opt ", "rslv"};
 	Node dummyNode;
 
-	public Node NewNode(int typ, Symbol sym, int line) {
-		Node node = new Node(typ, sym, line);
+	public Node NewNode(int typ, Symbol sym, int line, int col) {
+		Node node = new Node(typ, sym, line, col);
 		node.n = nodes.size();
 		nodes.add(node);
 		return node;
 	}
 
 	public Node NewNode(int typ, Node sub) {
-		Node node = NewNode(typ, null, 0);
+		Node node = NewNode(typ, null, 0, 0);
 		node.sub = sub;
 		return node;
 	}
 
-	public Node NewNode(int typ, int val, int line) {
-		Node node = NewNode(typ, null, line);
+	public Node NewNode(int typ, int val, int line, int col) {
+		Node node = NewNode(typ, null, line, col);
 		node.val = val;
 		return node;
 	}
@@ -401,7 +408,9 @@ public class Tab {
 	}
 
 	public void MakeIteration(Graph g) {
+		int line = g.l.line;
 		g.l = NewNode(Node.iter, g.l);
+		g.l.line = line;
 		g.r.up = true;
 		Node p = g.r;
 		g.r = g.l;
@@ -412,7 +421,9 @@ public class Tab {
 	}
 
 	public void MakeOption(Graph g) {
+		int line = g.l.line;
 		g.l = NewNode(Node.opt, g.l);
+		g.l.line = line;
 		g.r.up = true;
 		g.l.next = g.r;
 		g.r = g.l;
@@ -428,7 +439,7 @@ public class Tab {
 
 	public void DeleteNodes() {
 		nodes = new ArrayList();
-		dummyNode = NewNode(Node.eps, null, 0);
+		dummyNode = NewNode(Node.eps, null, 0, 0);
 	}
 
 	public Graph StrToGraph(String str) {
@@ -437,7 +448,7 @@ public class Tab {
 		Graph g = new Graph();
 		g.r = dummyNode;
 		for (int i = 0; i < s.length(); i++) {
-			Node p = NewNode(Node.chr, (int)s.charAt(i), 0);
+			Node p = NewNode(Node.chr, (int)s.charAt(i), 0, 0);
 			g.r.next = p; g.r = p;
 		}
 		g.l = dummyNode.next; dummyNode.next = null;
@@ -479,7 +490,7 @@ public class Tab {
 
 	String Ptr(Node p, boolean up) {
 		String ptr = (p == null) ? "0" : Integer.toString(p.n);
-		return (up) ? ("-" + ptr) : ptr;
+		return (up && (ptr != "0")) ? ("-" + ptr) : ptr;
 	}
 
 	String Pos(Position pos) {
@@ -540,7 +551,7 @@ public class Tab {
 					trace.Write("             ");
 					trace.Write(Pos(p.pos), 5);
 					break;
-				case Node.eps: case Node.any: case Node.sync:
+				case Node.eps: case Node.any: case Node.sync: case Node.rslv:
 					trace.Write("                  "); break;
 			}
 			trace.WriteLine(Integer.toString(p.line), 5);
@@ -603,7 +614,8 @@ public class Tab {
 		//foreach (CharClass c in classes) {
 		for (int i = 0; i < classes.size(); i++) {
 			CharClass c = (CharClass)classes.get(i);
-			trace.Write(c.name + ": ", -10);
+			trace.Write(c.name, -10);
+			trace.Write(": ");
 			WriteCharSet(c.set);
 			trace.WriteLine();
 		}
@@ -913,8 +925,8 @@ public class Tab {
 				Node p = (Node)nodes.get(i);
 				if (p.typ == Node.any || p.typ == Node.sync) {
 					trace.Write("Line: ");
-					trace.WriteLine(Integer.toString(p.line), 4);
-					trace.Write("Node: ");
+					trace.Write(Integer.toString(p.line), 4);
+					trace.Write(" Node: ");
 					trace.Write(Integer.toString(p.n), 4);
 					trace.Write(" ");
 					trace.Write(nTyp[p.typ], 4);
@@ -1010,10 +1022,21 @@ public class Tab {
 
 	public boolean GrammarOk() {
 		boolean ok = NtsComplete()
+			&& AllNtReached()
 			&& NoCircularProductions()
 			&& AllNtToTerm();
-		if (ok) { AllNtReached(); CheckResolvers(); CheckLL1(); }
+		if (ok) { CheckResolvers(); CheckLL1(); }
 		return ok;
+	}
+
+	public boolean GrammarCheckAll() {
+		int errors = 0;
+		if(!NtsComplete()) ++errors;
+		if(!AllNtReached()) ++errors;
+		if(!NoCircularProductions()) System.exit(1);
+		if(!AllNtToTerm()) ++errors;
+		CheckResolvers(); CheckLL1();
+		return errors == 0;
 	}
 
 	//--------------- check for circular productions ----------------------
@@ -1029,7 +1052,7 @@ public class Tab {
 	void GetSingles(Node p, ArrayList singles) {
 		if (p == null) return;  // end of graph
 		if (p.typ == Node.nt) {
-			if (p.up || DelGraph(p.next)) singles.add(p.sym);
+			singles.add(p.sym);
 		} else if (p.typ == Node.alt || p.typ == Node.iter || p.typ == Node.opt) {
 			if (p.up || DelGraph(p.next)) {
 				GetSingles(p.sub, singles);
@@ -1070,7 +1093,7 @@ public class Tab {
 		for (int i = 0; i < list.size(); i++) {
 			CNode n = (CNode)list.get(i);
 			ok = false;
-			errors.SemErr("  " + n.left.name + " --> " + n.right.name);
+			errors.SemErr("  " + n.left.name + ":" + n.left.line + " --> " + n.right.name + ":" + n.right.line);
 		}
 		return ok;
 	}
@@ -1078,7 +1101,7 @@ public class Tab {
 	//--------------- check for LL(1) errors ----------------------
 
 	void LL1Error(int cond, Symbol sym) {
-		String s = "  LL1 warning in " + curSy.name + ": ";
+		String s = "  LL1 warning in " + curSy.name + ":" + curSy.line + ":" + curSy.col + ": ";
 		if (sym != null) s += sym.name + " is ";
 		switch (cond) {
 			case 1: s += "start of several alternatives"; break;
@@ -1089,22 +1112,93 @@ public class Tab {
 		errors.Warning(s);
 	}
 
-	void CheckOverlap(BitSet s1, BitSet s2, int cond) {
+	int CheckOverlap(BitSet s1, BitSet s2, int cond) {
+		int overlaped = 0;
 		for (int i = 0; i < terminals.size(); i++) {
 			Symbol sym = (Symbol) terminals.get(i);
-			if (s1.get(sym.n) && s2.get(sym.n)) LL1Error(cond, sym);
+			if (s1.get(sym.n) && s2.get(sym.n)) {
+				LL1Error(cond, sym);
+				++overlaped;
+			}
 		}
+		return overlaped;
 	}
 
-	void CheckAlts(Node p) {
+	/* print the path for first set that contains token tok for the graph rooted at p */
+	void PrintFirstPath(Node p, int tok, String indent, int depth)
+	{
+		while (p != null)
+		{
+		    switch (p.typ)
+		    {
+			case Node.nt:
+			{
+				if (p.sym.firstReady)
+				{
+					if (p.sym.first.get(tok))
+					{
+						if (indent.length() == 1) System.out.println(indent + "=> " + p.sym.name + ":" + p.line + ":" + p.col + ":");
+						System.out.println(indent + "-> " + p.sym.name + ":" + p.sym.line + ":" + p.sym.col + ":");
+						if (p.sym.graph != null) PrintFirstPath(p.sym.graph, tok, indent + "  ", depth + 1);
+						return;
+					}
+				}
+				break;
+			}
+			case Node.t:
+			case Node.wt:
+			{
+				if (p.sym.n == tok) System.out.println(indent + "= " + p.sym.name + ":" + p.line + ":" + p.col + ":");
+				break;
+			}
+			case Node.any:
+			{
+				break;
+			}
+			case Node.alt:
+			{
+				PrintFirstPath(p.sub, tok, indent, depth + 1);
+				PrintFirstPath(p.down, tok, indent, depth + 1);
+				break;
+			}
+			case Node.iter:
+			case Node.opt:
+			{
+				if (!DelNode(p.sub)) //prevent endless loop with some ill grammars
+					PrintFirstPath(p.sub, tok, indent, depth + 1);
+				break;
+			}
+		    }
+		    if (!DelNode(p)) break;
+		    p = p.next;
+		}
+	}
+	void PrintFirstPath(Node p, int tok)
+	{
+		PrintFirstPath(p, tok, "\t", 0);
+	}
+
+	int CheckAlts(Node p) {
 		BitSet s1, s2;
+		int rc = 0;
 		while (p != null) {
 			if (p.typ == Node.alt) {
 				Node q = p;
 				s1 = new BitSet(terminals.size());
 				while (q != null) { // for all alternatives
 					s2 = Expected0(q.sub, curSy);
-					CheckOverlap(s1, s2, 1);
+					int overlaped = CheckOverlap(s1, s2, 1);
+					if (overlaped > 0)
+					{
+						int overlapToken = 0;
+						/* Find the first overlap token */
+						for (int i = 0; i < terminals.size(); i++) {
+							Symbol sym = (Symbol) terminals.get(i);
+						    if (s1.get(sym.n) && s2.get(sym.n)) { overlapToken = sym.n; break; }
+						}
+						PrintFirstPath(p, overlapToken);
+						rc += overlaped;
+					}
 					s1.or(s2);
 					CheckAlts(q.sub);
 					q = q.down;
@@ -1114,7 +1208,19 @@ public class Tab {
 				else {
 					s1 = Expected0(p.sub, curSy);
 					s2 = Expected(p.next, curSy);
-					CheckOverlap(s1, s2, 2);
+					int overlaped = CheckOverlap(s1, s2, 2);
+					if (overlaped > 0)
+					{
+						int overlapToken = 0;
+						/* Find the first overlap token */
+						for (int i = 0; i < terminals.size(); i++) {
+							Symbol sym = (Symbol) terminals.get(i);
+						    if (s1.get(sym.n) && s2.get(sym.n)) { overlapToken = sym.n; break; }
+						}
+						//Console.WriteLine(format("\t=>:{0}: {1}", p.line, overlaped));
+						PrintFirstPath(p, overlapToken);
+						rc += overlaped;
+					}
 				}
 				CheckAlts(p.sub);
 			} else if (p.typ == Node.any) {
@@ -1124,6 +1230,7 @@ public class Tab {
 			if (p.up) break;
 			p = p.next;
 		}
+		return rc;
 	}
 
 	public void CheckLL1() {

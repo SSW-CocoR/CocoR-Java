@@ -40,6 +40,11 @@ import java.io.BufferedWriter;     /* pdt */
 import java.io.FileWriter;         /* pdt */
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Comparator;
+import java.util.Hashtable;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.Iterator;
 
 public class ParserGen {
 
@@ -80,9 +85,17 @@ public class ParserGen {
     for (int i = 0; i < len; ++i) {
       if (s1.get(i) && s2.get(i)) {
         return true;
+      }
     }
+    return false;
   }
-  return false;
+
+   void WriteSymbolOrCode(Symbol sym) {
+		if (!Character.isLetter(sym.name.charAt(0))) {
+			gen.print(sym.n + " /* " + sym.name + " */");
+		} else {
+			gen.print("_" + sym.name);
+		}
   }
 
   // AW: use a switch if more than 5 alternatives and none starts with a resolver, no LL1 warning
@@ -128,6 +141,17 @@ public class ParserGen {
     }
   }
 
+  /* TODO better interface for CopySourcePart */
+  public void CopySourcePart (Parser parser, PrintWriter gen, Position pos, int indent) {
+    // Copy text described by pos from atg to gen
+    int oldPos = parser.pgen.buffer.getPos();  // Pos is modified by CopySourcePart
+    PrintWriter prevGen = parser.pgen.gen;
+    parser.pgen.gen = gen;
+    parser.pgen.CopySourcePart(pos, 0);
+    parser.pgen.gen = prevGen;
+    parser.pgen.buffer.setPos(oldPos);
+  }
+
   void GenErrorMsg (int errTyp, Symbol sym) {
     errorNr++;
     err.write(ls + "\t\t\tcase " + errorNr + ": s = \"");
@@ -158,7 +182,9 @@ public class ParserGen {
         for (int i = 0; i < tab.terminals.size(); i++) {
           Symbol sym = (Symbol)tab.terminals.get(i);
           if (s.get(sym.n)) {
-            gen.print("la.kind == " + sym.n);
+            gen.print("isKind(la, ");
+            WriteSymbolOrCode(sym);
+            gen.print(")");
             --n;
             if (n > 0) gen.print(" || ");
           }
@@ -171,7 +197,11 @@ public class ParserGen {
   void PutCaseLabels (BitSet s) {
     for (int i = 0; i < tab.terminals.size(); i++) {
       Symbol sym = (Symbol)tab.terminals.get(i);
-      if (s.get(sym.n)) gen.print("case " + sym.n + ": ");
+      if (s.get(sym.n)) {
+		  gen.print("case ");
+		  WriteSymbolOrCode(sym);
+		  gen.print(": ");
+	  }
     }
   }
 
@@ -183,7 +213,7 @@ public class ParserGen {
         case Node.nt: {
           Indent(indent);
           if (p.retVar != null) gen.print(p.retVar + " = ");
-          gen.print(p.sym.name + "(");
+          gen.print(p.sym.name + "_NT(");
           CopySourcePart(p.pos, 0);
           gen.println(");");
           break;
@@ -192,14 +222,23 @@ public class ParserGen {
           Indent(indent);
           // assert: if isChecked[p.sym.n] is true, then isChecked contains only p.sym.n
           if (isChecked.get(p.sym.n)) gen.println("Get();");
-          else gen.println("Expect(" + p.sym.n + ");");
+          else {
+			  gen.print("Expect(");
+			  WriteSymbolOrCode(p.sym);
+			  gen.println(");");
+		  }
+		  if(tab.genAST) {
+			gen.println("\tAstAddTerminal();");
+		  }
           break;
         }
         case Node.wt: {
           Indent(indent);
           s1 = tab.Expected(p.next, curSy);
           s1.or(tab.allSyncSets);
-          gen.println("ExpectWeak(" + p.sym.n + ", " + NewCondSet(s1) + ");");
+          gen.print("ExpectWeak(");
+          WriteSymbolOrCode(p.sym);
+          gen.println(", " + NewCondSet(s1) + ");");
           break;
         }
         case Node.any: {
@@ -303,13 +342,36 @@ public class ParserGen {
     }
   }
 
+   void GenTokenBase() {
+	for (int i = 0; i < tab.terminals.size(); i++) {
+		Symbol sym = (Symbol)tab.terminals.get(i);
+		if((i % 20) == 0) gen.print("\n\t\t");
+		if (sym.inherits == null)
+			gen.print("-1,"); // not inherited
+		else
+			gen.print(sym.inherits.n + ",");
+	}
+   }
+
   void GenTokens() {
-    //foreach (Symbol sym in Symbol.terminals) {
+	gen.println("\t//non terminals");
+    for (int i = 0; i < tab.nonterminals.size(); i++) {
+      Symbol sym = (Symbol)tab.nonterminals.get(i);
+	  gen.println("\tpublic static final int _NT_" + sym.name + " = " + sym.n + ";");
+	}
+	gen.println("\tpublic static final int maxNT = " + (tab.nonterminals.size()-1) + ";");
+	gen.println("\t//terminals");
     for (int i = 0; i < tab.terminals.size(); i++) {
       Symbol sym = (Symbol)tab.terminals.get(i);
       if (Character.isLetter(sym.name.charAt(0)))
-        gen.println("\tpublic static final int _" + sym.name + " = " + sym.n + ";");
+        gen.print("\tpublic static final int _" + sym.name + " = " + sym.n + ";");
+      else
+        gen.print("//\tpublic static final int _(" + sym.name + ") = " + sym.n + ";");
+      if(sym.inherits != null)
+	      gen.print(" // INHERITS -> " + sym.inherits.name);
+      gen.println();
     }
+	gen.println("\t//non terminals");
   }
 
   void GenPragmas() {
@@ -324,7 +386,9 @@ public class ParserGen {
     for (int i = 0; i < tab.pragmas.size(); i++) {
       Symbol sym = (Symbol)tab.pragmas.get(i);
       gen.println();
-      gen.println("\t\t\tif (la.kind == " + sym.n + ") {");
+      gen.print("\t\t\tif (la.kind == ");
+      WriteSymbolOrCode(sym);
+      gen.println(") {");
       CopySourcePart(sym.semPos, 4);
       gen.print  ("\t\t\t}");
     }
@@ -336,12 +400,20 @@ public class ParserGen {
       curSy = sym;
       gen.print("\t");
       if (sym.retType == null) gen.print("void "); else gen.print(sym.retType + " ");
-      gen.print(sym.name + "(");
+      gen.print(sym.name + "_NT(");
       CopySourcePart(sym.attrPos, 0);
       gen.println(") {");
       if (sym.retVar != null) gen.println("\t\t" + sym.retType + " " + sym.retVar + ";");
       CopySourcePart(sym.semPos, 2);
+      if(tab.genAST) {
+        if(i == 0) gen.println("\tToken rt = new Token(); rt.kind = _NT_" + sym.name + "; rt.val = \"" + sym.name + "\";ast_root = new SynTree( rt ); ast_stack = new Stack<SynTree>(); ast_stack.push(ast_root);");
+        else gen.println("\tboolean ntAdded = AstAddNonTerminal(_NT_" + sym.name + ", \"" + sym.name + "\", la.line);");
+      }
       GenCode(sym.graph, 2, new BitSet(tab.terminals.size()));
+      if(tab.genAST) {
+      	if(i == 0) gen.println("\tAstPopNonTerminal();");
+      	else gen.println("\tif(ntAdded) AstPopNonTerminal();");
+      }
       if (sym.retVar != null) gen.println("\t\treturn " + sym.retVar + ";");
       gen.println("\t}"); gen.println();
     }
@@ -398,7 +470,8 @@ public class ParserGen {
     g.CopyFramePart("-->declarations"); CopySourcePart(tab.semDeclPos, 0);
     g.CopyFramePart("-->pragmas"); GenCodePragmas();
     g.CopyFramePart("-->productions"); GenProductions();
-    g.CopyFramePart("-->parseRoot"); gen.println("\t\t" + tab.gramSy.name + "();"); if (tab.checkEOF) gen.println("\t\tExpect(0);");
+    g.CopyFramePart("-->parseRoot"); gen.println("\t\t" + tab.gramSy.name + "_NT();"); if (tab.checkEOF) gen.println("\t\tExpect(0);");
+    g.CopyFramePart("-->tbase"); GenTokenBase(); // write all tokens base types
     g.CopyFramePart("-->initialization"); InitSets();
     g.CopyFramePart("-->errors"); gen.print(err.toString());
     g.CopyFramePart(null);
@@ -411,6 +484,98 @@ public class ParserGen {
   // Eclipse Plugin of the Institue for System Software.
   protected void OnWriteParserInitializationDone() {
     // nothing to do
+  }
+
+  public int GenCodeRREBNF (Node p) {
+  	int rc = 0;
+  	Node p2;
+  	while (p != null) {
+  		switch (p.typ) {
+  			case Node.nt:
+  			case Node.t: {
+  				gen.print(p.sym.name);
+  				gen.print(" ");
+  				++rc;
+  				break;
+  			}
+  			case Node.wt: {
+  				break;
+  			}
+  			case Node.any: {
+  				gen.print("ANY ");
+  				break;
+  			}
+  			case Node.eps: break; // nothing
+  			case Node.rslv: break; // nothing
+  			case Node.sem: {
+  				break;
+  			}
+  			case Node.sync: {
+  				break;
+  			}
+  			case Node.alt: {
+  				gen.print("( ");
+  				p2 = p;
+  				while (p2 != null) {
+  					rc += GenCodeRREBNF(p2.sub);
+  					p2 = p2.down;
+  					if(p2 != null) gen.print("| ");
+  				}
+  				gen.print(") ");
+  				break;
+  			}
+  			case Node.iter: {
+  				gen.print("( ");
+  				rc += GenCodeRREBNF(p.sub);
+  				gen.print(")* ");
+  				break;
+  			}
+  			case Node.opt:
+  				gen.print("( ");
+  				rc += GenCodeRREBNF(p.sub);
+  				gen.print(")? ");
+  				break;
+  		}
+  		if (p.up) break;
+  		p = p.next;
+  	}
+  	return rc;
+  }
+
+  public void WriteRREBNF () {
+  	Generator g = new Generator(tab);
+  	gen = g.OpenGen("Parser.ebnf");
+
+  	gen.print("//\n// EBNF generated by CocoR parser generator to be viewed with https://www.bottlecaps.de/rr/ui\n//\n");
+  	gen.print("\n//\n// productions\n//\n\n");
+    for (int i = 0; i < tab.nonterminals.size(); i++) {
+      Symbol sym = (Symbol)tab.nonterminals.get(i);
+  		gen.print(sym.name + " ::= ");
+  		if(GenCodeRREBNF(sym.graph) == 0) {
+  			gen.print("\"??()??\"");
+  		}
+  		gen.print("\n");
+  	}
+  	gen.print("\n//\n// tokens\n//\n\n");
+    for (int i = 0; i < tab.terminals.size(); i++) {
+      Symbol sym = (Symbol)tab.terminals.get(i);
+      if (Character.isLetter(sym.name.charAt(0))) { // real name value is stored in Tab.literals
+		java.util.Iterator iter = tab.literals.entrySet().iterator();
+		Map.Entry me = null;
+		//foreach (DictionaryEntry e in literals) {
+		while (iter.hasNext()) {
+			me = (Map.Entry)iter.next();
+			Symbol hsym = (Symbol)me.getValue();
+			if (hsym == sym) {
+				gen.print(sym.name + " ::= " + me.getKey() + "\n");
+				break;
+			}
+		}
+  		} else {
+  			//gen.print(sym.n + " /* " + sym.name + " */");
+  		}
+  	}
+  	gen.close();
   }
 
   public void WriteStatistics () {
